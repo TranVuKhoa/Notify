@@ -1,0 +1,10 @@
+-- [[ ĐOẠN CODE TEST NOTIFY - VU KHOA ]]
+
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "NOTIFY UI LIBRARY"; -- Tiêu đề giống script bạn đang dùng
+    Text = "Kaitun VuKhoa: Đang kiểm tra hệ thống..."; -- Nội dung thông báo
+    Icon = "rbxassetid://15117265675"; -- Icon (bạn có thể thay đổi ID icon nếu muốn)
+    Duration = 10; -- Hiển thị trong 10 giây
+})
+
+print("Notify test sent!") -- Kiểm tra trong bảng Console (F9) nếu cần

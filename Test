@@ -2,8 +2,8 @@ local lp = game:GetService("Players").LocalPlayer
 local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
 
--- Xóa UI cũ nếu đã chạy trước đó để tránh lỗi
-local oldUI = game:GetService("CoreGui"):FindFirstChild("TrVuKhoaa_Final")
+-- Xóa UI cũ để tránh lỗi chồng chéo
+local oldUI = game:GetService("CoreGui"):FindFirstChild("TrVuKhoaa_Squircle")
 if oldUI then oldUI:Destroy() end
 
 -- [[ HÀM THÔNG BÁO ]]
@@ -11,87 +11,74 @@ local function CreateNotify(title, text, duration)
     local sg = Instance.new("ScreenGui", game.CoreGui)
     local mf = Instance.new("Frame", sg)
     mf.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    mf.Size = UDim2.new(0, 260, 0, 70)
+    mf.Size = UDim2.new(0, 260, 0, 75)
     mf.Position = UDim2.new(1, 10, 1, -100)
-    Instance.new("UICorner", mf).CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", mf).CornerRadius = UDim.new(0, 8) -- Vuông tròn
     local s = Instance.new("UIStroke", mf)
     s.Color = Color3.fromRGB(255, 255, 0); s.Thickness = 2
 
     local tl = Instance.new("TextLabel", mf)
-    tl.Text = title; tl.TextColor3 = Color3.new(1, 1, 0); tl.Size = UDim2.new(1, -20, 0, 25); tl.Position = UDim2.new(0, 10, 0, 5); tl.BackgroundTransparency = 1; tl.Font = "GothamBold"; tl.TextSize = 14; tl.TextXAlignment = "Left"
+    tl.Text = title; tl.TextColor3 = Color3.new(1, 1, 0); tl.Size = UDim2.new(1, -20, 0, 25); tl.Position = UDim2.new(0, 10, 0, 8); tl.BackgroundTransparency = 1; tl.Font = "GothamBold"; tl.TextSize = 14; tl.TextXAlignment = "Left"
 
     local cl = Instance.new("TextLabel", mf)
-    cl.Text = text; cl.TextColor3 = Color3.new(1, 1, 1); cl.Size = UDim2.new(1, -20, 0, 35); cl.Position = UDim2.new(0, 10, 0, 30); cl.BackgroundTransparency = 1; cl.Font = "Gotham"; cl.TextSize = 13; cl.TextXAlignment = "Left"; cl.TextWrapped = true
+    cl.Text = text; cl.TextColor3 = Color3.new(1, 1, 1); cl.Size = UDim2.new(1, -20, 0, 35); cl.Position = UDim2.new(0, 10, 0, 32); cl.BackgroundTransparency = 1; cl.Font = "Gotham"; cl.TextSize = 13; cl.TextXAlignment = "Left"; cl.TextWrapped = true
 
     mf:TweenPosition(UDim2.new(1, -270, 1, -100), "Out", "Back", 0.5, true)
     task.delay(duration or 5, function()
-        if mf then
-            mf:TweenPosition(UDim2.new(1, 10, 1, -100), "In", "Quad", 0.5, true, function() sg:Destroy() end)
-        end
+        if mf then mf:TweenPosition(UDim2.new(1, 10, 1, -100), "In", "Quad", 0.5, true, function() sg:Destroy() end) end
     end)
 end
 
--- [[ GIAO DIỆN ]]
+-- [[ GIAO DIỆN CHÍNH ]]
 local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
-ScreenGui.Name = "TrVuKhoaa_Final"
+ScreenGui.Name = "TrVuKhoaa_Squircle"
 
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
 MainFrame.Position = UDim2.new(0.5, -110, 0.3, 0)
 MainFrame.Size = UDim2.new(0, 220, 0, 380)
 MainFrame.ClipsDescendants = true
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 4)
+MainFrame.BorderSizePixel = 0
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8) -- Squircle style
 
+-- Title Bar (Màu Đen Tuyệt Đối)
+local TitleBar = Instance.new("Frame", MainFrame)
+TitleBar.Size = UDim2.new(1, 0, 0, 40)
+TitleBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+TitleBar.BorderSizePixel = 0
+
+local ToggleBtn = Instance.new("TextButton", TitleBar)
+ToggleBtn.Text = "  🔻 TRVŨKHOAA"
+ToggleBtn.Size = UDim2.new(1, -45, 1, 0)
+ToggleBtn.BackgroundTransparency = 1
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- Màu Trắng
+ToggleBtn.Font = "GothamBold"; ToggleBtn.TextSize = 13; ToggleBtn.TextXAlignment = "Left"
+
+local CloseBtn = Instance.new("TextButton", TitleBar)
+CloseBtn.Text = "✕"
+CloseBtn.Size = UDim2.new(0, 40, 1, 0)
+CloseBtn.Position = UDim2.new(1, -40, 0, 0)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Xung quanh màu đen
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Font = "GothamBold"; CloseBtn.TextSize = 16; CloseBtn.BorderSizePixel = 0
+
+-- Floating Icon (Nút tròn khi đóng)
 local FloatingBtn = Instance.new("ImageButton", ScreenGui)
 FloatingBtn.Size = UDim2.new(0, 55, 0, 55)
-FloatingBtn.Position = UDim2.new(0.1, 0, 0.5, 0)
+FloatingBtn.Position = UDim2.new(0, 20, 0, 20)
 FloatingBtn.BackgroundColor3 = Color3.fromRGB(114, 137, 218)
 FloatingBtn.Image = "rbxassetid://6031171742"
 FloatingBtn.Visible = false
 Instance.new("UICorner", FloatingBtn).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", FloatingBtn).Thickness = 2
+local fs = Instance.new("UIStroke", FloatingBtn); fs.Color = Color3.new(1,1,1); fs.Thickness = 2
 
--- Title Bar
-local TitleBar = Instance.new("Frame", MainFrame)
-TitleBar.Size = UDim2.new(1, 0, 0, 35)
-TitleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-
-local ToggleBtn = Instance.new("TextButton", TitleBar)
-ToggleBtn.Text = "  🔻 TrVũKhoaa"
-ToggleBtn.Size = UDim2.new(1, -70, 1, 0)
-ToggleBtn.BackgroundTransparency = 1
-ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
-ToggleBtn.Font = "GothamBold"; ToggleBtn.TextSize = 14; ToggleBtn.TextXAlignment = "Left"
-
-local CloseBtn = Instance.new("TextButton", TitleBar)
-CloseBtn.Text = "X"
-CloseBtn.Size = UDim2.new(0, 35, 1, 0)
-CloseBtn.Position = UDim2.new(1, -35, 0, 0)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
-CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-
+-- Danh sách chức năng
 local Content = Instance.new("ScrollingFrame", MainFrame)
-Content.Size = UDim2.new(1, 0, 1, -35); Content.Position = UDim2.new(0, 0, 0, 35); Content.BackgroundTransparency = 1; Content.CanvasSize = UDim2.new(0,0,0,350); Content.ScrollBarThickness = 2
+Content.Size = UDim2.new(1, 0, 1, -40); Content.Position = UDim2.new(0, 0, 0, 40)
+Content.BackgroundTransparency = 1; Content.ScrollBarThickness = 0; Content.CanvasSize = UDim2.new(0,0,0,340)
+local UIList = Instance.new("UIListLayout", Content); UIList.Padding = UDim.new(0, 6); UIList.HorizontalAlignment = "Center"
 
--- Logic Thu nhỏ & Đóng
-local isOpen = true
-ToggleBtn.MouseButton1Click:Connect(function()
-    isOpen = not isOpen
-    MainFrame:TweenSize(isOpen and UDim2.new(0, 220, 0, 380) or UDim2.new(0, 220, 0, 35), "Out", "Quad", 0.2, true)
-    ToggleBtn.Text = isOpen and "  🔻 TrVũKhoaa" or "  ▶ TrVũKhoaa"
-end)
-
-CloseBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-    FloatingBtn.Visible = true
-end)
-
-FloatingBtn.MouseButton1Click:Connect(function()
-    FloatingBtn.Visible = false
-    MainFrame.Visible = true
-end)
-
--- [[ KÉO THẢ FIXED ]]
+-- [[ LOGIC DRAG & CLICK ]]
 local function drag(obj, handle)
     local dragToggle, dragStart, startPos
     handle.InputBegan:Connect(function(input)
@@ -105,38 +92,56 @@ local function drag(obj, handle)
             obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
-    uis.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragToggle = false end
-    end)
+    uis.InputEnded:Connect(function(input) dragToggle = false end)
 end
 drag(MainFrame, TitleBar)
 drag(FloatingBtn, FloatingBtn)
 
--- [[ CHỨC NĂNG ]]
-local ghimActive, xrayActive, ghostActive, airWalkActive = false, false, false, false
-local lockedPos, airWalkPart, ghostModel = nil, nil, nil
-local localMoveDir = Vector3.new(0,0,0)
+local isOpen = true
+ToggleBtn.MouseButton1Click:Connect(function()
+    isOpen = not isOpen
+    MainFrame:TweenSize(isOpen and UDim2.new(0, 220, 0, 380) or UDim2.new(0, 220, 0, 40), "Out", "Quad", 0.3, true)
+    ToggleBtn.Text = isOpen and "  🔻 TRVŨKHOAA" or "  ▶ TRVŨKHOAA"
+end)
 
+CloseBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false; FloatingBtn.Visible = true
+    FloatingBtn.Position = UDim2.new(0, MainFrame.AbsolutePosition.X, 0, MainFrame.AbsolutePosition.Y)
+end)
+
+FloatingBtn.MouseButton1Click:Connect(function()
+    FloatingBtn.Visible = false; MainFrame.Visible = true
+end)
+
+-- [[ TẠO NÚT TÍNH NĂNG ]]
 local function createBtn(txt, callback)
     local btn = Instance.new("TextButton", Content)
-    btn.Size = UDim2.new(0.9, 0, 0, 32); btn.Position = UDim2.new(0.05, 0, 0, 0)
-    btn.BackgroundTransparency = 1; btn.Text = ""
-    local box = Instance.new("Frame", btn)
-    box.Size = UDim2.new(0, 18, 0, 18); box.Position = UDim2.new(0, 5, 0.5, -9); box.BackgroundColor3 = Color3.fromRGB(40,40,40)
-    local lbl = Instance.new("TextLabel", btn)
-    lbl.Text = txt; lbl.Size = UDim2.new(1, -30, 1, 0); lbl.Position = UDim2.new(0, 30, 0, 0); lbl.BackgroundTransparency = 1; lbl.TextColor3 = Color3.new(1,1,1); lbl.TextXAlignment = "Left"; lbl.Font = "Gotham"; lbl.TextSize = 13
+    btn.Size = UDim2.new(0.92, 0, 0, 38); btn.BackgroundTransparency = 1; btn.Text = ""
     
+    local bg = Instance.new("Frame", btn)
+    bg.Size = UDim2.new(1, 0, 1, 0); bg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 6)
+    
+    local box = Instance.new("Frame", btn)
+    box.Size = UDim2.new(0, 16, 0, 16); box.Position = UDim2.new(0, 12, 0.5, -8); box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+    
+    local lbl = Instance.new("TextLabel", btn)
+    lbl.Text = txt; lbl.Size = UDim2.new(1, -40, 1, 0); lbl.Position = UDim2.new(0, 40, 0, 0); lbl.BackgroundTransparency = 1; lbl.TextColor3 = Color3.new(0.8, 0.8, 0.8); lbl.Font = "Gotham"; lbl.TextSize = 13; lbl.TextXAlignment = "Left"
+
     local active = false
     btn.MouseButton1Click:Connect(function()
         active = not active
-        box.BackgroundColor3 = active and Color3.fromRGB(114, 137, 218) or Color3.fromRGB(40,40,40)
+        box.BackgroundColor3 = active and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(40, 40, 40)
+        lbl.TextColor3 = active and Color3.new(1, 1, 1) or Color3.new(0.8, 0.8, 0.8)
         callback(active)
         CreateNotify("VKhoa Sync", txt.." : "..(active and "BẬT" or "TẮT"), 2)
     end)
 end
 
-local UIList = Instance.new("UIListLayout", Content)
-UIList.Padding = UDim.new(0, 5); UIList.HorizontalAlignment = "Center"
+-- Tính năng
+local ghimActive, xrayActive, ghostActive, airWalkActive = false, false, false, false
+local lockedPos, airWalkPart, ghostModel = nil, nil, nil
 
 createBtn("Ghim Vị Trí", function(s) ghimActive = s; if s and lp.Character then lockedPos = lp.Character.HumanoidRootPart.CFrame end end)
 createBtn("Xray ESP", function(s) xrayActive = s end)
@@ -154,7 +159,7 @@ createBtn("Air Walk", function(s)
     elseif airWalkPart then airWalkPart:Destroy() end
 end)
 
--- [[ HEARTBEAT LOOP ]]
+-- Heartbeat Loop
 runService.Heartbeat:Connect(function(dt)
     if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
     local root = lp.Character.HumanoidRootPart
@@ -170,8 +175,7 @@ runService.Heartbeat:Connect(function(dt)
     end
 
     if ghimActive and lockedPos and not ghostActive then root.CFrame = lockedPos; root.Velocity = Vector3.new(0,0,0) end
-    if ghostActive and ghostModel then root.CFrame = lockedPos or root.CFrame; root.Velocity = Vector3.new(0,0,0) end
-    if airWalkActive and airWalkPart then airWalkPart.Position = (ghostActive and ghostModel and ghostModel.HumanoidRootPart.Position or root.Position) - Vector3.new(0, 3.5, 0) end
+    if airWalkActive and airWalkPart then airWalkPart.Position = root.Position - Vector3.new(0, 3.5, 0) end
 end)
 
-CreateNotify("NOTIFY UI LIBRARY", "X Ray Controller VKhoa Online", 5)
+CreateNotify("SYSTEM READY", "X-Ray Controller VuKhoaa Squircle Online!", 5)

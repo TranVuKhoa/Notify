@@ -3,49 +3,52 @@ local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
 
 -- Xóa UI cũ
-local oldUI = game:GetService("CoreGui"):FindFirstChild("VuKhoa_Antique_Final")
+local oldUI = game:GetService("CoreGui"):FindFirstChild("VuKhoa_TopRight_Fixed")
 if oldUI then oldUI:Destroy() end
 
 local localMoveDir = Vector3.new(0,0,0)
 local currentSpeed = 1
-local ghimActive, xrayActive, ghostActive = false, false, false
+local ghimActive, xrayActive = false, false
 local lockedPos
 
 -- [[ GIAO DIỆN CHÍNH ]]
 local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
-ScreenGui.Name = "VuKhoa_Antique_Final"
+ScreenGui.Name = "VuKhoa_TopRight_Fixed"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true 
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-MainFrame.Position = UDim2.new(0.5, -110, 0.4, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+-- Đặt vị trí ban đầu ở phía trên góc phải (cách mép 10px)
+MainFrame.Position = UDim2.new(1, -230, 0, 50) 
 MainFrame.Size = UDim2.new(0, 220, 0, 395) 
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Active = true 
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10) -- Bo góc Squircle
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
--- Title Bar (Phần để kéo)
+-- Title Bar (Chỉ thanh này mới kéo được)
 local TitleBar = Instance.new("Frame", MainFrame)
 TitleBar.Size = UDim2.new(1, 0, 0, 40)
 TitleBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 TitleBar.BorderSizePixel = 0
+TitleBar.ZIndex = 10
 
 local ToggleBtn = Instance.new("TextButton", TitleBar)
-ToggleBtn.Size = UDim2.new(1, -40, 1, 0)
+ToggleBtn.Size = UDim2.new(1, 0, 1, 0)
 ToggleBtn.BackgroundTransparency = 1
 ToggleBtn.Text = "  ▼ Xray Controller"
 ToggleBtn.TextColor3 = Color3.fromRGB(230, 230, 230)
-ToggleBtn.Font = Enum.Font.Antique -- Font chuẩn ảnh
-ToggleBtn.TextSize = 18; ToggleBtn.TextXAlignment = "Left"
+ToggleBtn.Font = Enum.Font.Antique
+ToggleBtn.TextSize = 18
+ToggleBtn.TextXAlignment = "Left"
+ToggleBtn.ZIndex = 11
 
-local CloseBtn = Instance.new("TextButton", TitleBar)
-CloseBtn.Size = UDim2.new(0, 40, 1, 0); CloseBtn.Position = UDim2.new(1, -40, 0, 0)
-CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "✕"; CloseBtn.TextColor3 = Color3.new(1,1,1); CloseBtn.TextSize = 16
-
--- [[ CÁC KHUNG CHỨA (ĐỂ ẨN HIỆN) ]]
+-- [[ KHUNG CHỨA NỘI DUNG ]]
 local Container = Instance.new("Frame", MainFrame)
-Container.Size = UDim2.new(1, 0, 1, -40); Container.Position = UDim2.new(0, 0, 0, 40)
+Container.Name = "ContentContainer"
+Container.Size = UDim2.new(1, 0, 1, -40)
+Container.Position = UDim2.new(0, 0, 0, 40)
 Container.BackgroundTransparency = 1
 
 local Content = Instance.new("Frame", Container)
@@ -55,7 +58,7 @@ local SpeedBar = Instance.new("Frame", Container)
 SpeedBar.Size = UDim2.new(1, 0, 0, 45); SpeedBar.Position = UDim2.new(0, 0, 1, -45)
 SpeedBar.BackgroundColor3 = Color3.fromRGB(10, 10, 10); SpeedBar.BorderSizePixel = 0
 
--- Chi tiết SpeedBar (Màu xanh chuẩn ảnh)
+-- Chi tiết SpeedBar
 local BlueBox = Instance.new("Frame", SpeedBar)
 BlueBox.Size = UDim2.new(0, 24, 0, 24); BlueBox.Position = UDim2.new(0, 12, 0.5, -12); BlueBox.BackgroundColor3 = Color3.fromRGB(75, 115, 255); BlueBox.BorderSizePixel = 0
 local SpeedVal = Instance.new("TextBox", SpeedBar)
@@ -63,7 +66,7 @@ SpeedVal.Size = UDim2.new(0, 85, 0, 26); SpeedVal.Position = UDim2.new(0, 45, 0.
 local TocTxt = Instance.new("TextLabel", SpeedBar)
 TocTxt.Size = UDim2.new(0, 40, 1, 0); TocTxt.Position = UDim2.new(1, -50, 0, 0); TocTxt.BackgroundTransparency = 1; TocTxt.Text = "Tốc"; TocTxt.TextColor3 = Color3.new(1,1,1); TocTxt.Font = Enum.Font.Antique; TocTxt.TextSize = 20
 
--- [[ NÚT BẤM STYLE ẢNH (HỘP VUÔNG + CHỮ) ]]
+-- [[ NÚT BẤM STYLE CỔ ĐIỂN ]]
 local function createBtn(parent, txt, isGrid, callback)
     local btn = Instance.new("TextButton", parent)
     btn.Size = isGrid and UDim2.new(1, 0, 1, 0) or UDim2.new(0.9, 0, 0, 32)
@@ -76,32 +79,30 @@ local function createBtn(parent, txt, isGrid, callback)
     local on = false
     btn.MouseButton1Click:Connect(function()
         on = not on
-        box.BackgroundColor3 = on and Color3.fromRGB(120, 120, 120) or Color3.fromRGB(30, 30, 30)
+        box.BackgroundColor3 = on and Color3.fromRGB(150, 150, 150) or Color3.fromRGB(30, 30, 30)
         callback(on)
     end)
 end
 
--- Di chuyển
+-- Layout di chuyển
 local G = Instance.new("Frame", Content)
 G.Position = UDim2.new(0.05, 0, 0, 10); G.Size = UDim2.new(0.9, 0, 0, 110); G.BackgroundTransparency = 1
 Instance.new("UIGridLayout", G).CellSize = UDim2.new(0.48, 0, 0, 32)
 local mv = {{"Tiến", Vector3.new(0,0,-1)}, {"Lùi", Vector3.new(0,0,1)}, {"Trái", Vector3.new(-1,0,0)}, {"Phải", Vector3.new(1,0,0)}, {"Lên", Vector3.new(0,1,0)}, {"Xuống", Vector3.new(0,-1,0)}}
 for _, v in pairs(mv) do createBtn(G, v[1], true, function(s) if s then localMoveDir = localMoveDir + v[2] else localMoveDir = localMoveDir - v[2] end end) end
 
--- Chức năng
+-- Layout danh sách
 local L = Instance.new("Frame", Content)
 L.Position = UDim2.new(0.05, 0, 0, 130); L.Size = UDim2.new(0.9, 0, 0, 150); L.BackgroundTransparency = 1
 Instance.new("UIListLayout", L).Padding = UDim.new(0, 8)
 createBtn(L, "Ghim Pos", false, function(s) ghimActive = s; if s and lp.Character then lockedPos = lp.Character.HumanoidRootPart.CFrame end end)
 createBtn(L, "Xray ESP", false, function(s) xrayActive = s end)
-createBtn(L, "Ghost Mode", false, function(s) ghostActive = s end)
 
--- [[ FIX KÉO THẢ (LAG-PROOF) ]]
+-- [[ KÉO THẢ (DÙNG CHO TITLEBAR) ]]
 local dragging, dragStart, startPos
 TitleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true; dragStart = input.Position; startPos = MainFrame.Position
-        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
     end
 end)
 uis.InputChanged:Connect(function(input)
@@ -110,14 +111,19 @@ uis.InputChanged:Connect(function(input)
         MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
+uis.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
 
--- [[ FIX ĐÓNG/MỞ (KHÔNG DÙNG TWEEN) ]]
+-- [[ ĐÓNG MỞ (CHỐNG BIẾN MẤT) ]]
 local open = true
 ToggleBtn.MouseButton1Click:Connect(function()
     open = not open
     if not open then
-        Container.Visible = false -- Ẩn sạch nội dung bên trong ngay lập tức
-        MainFrame.Size = UDim2.new(0, 220, 0, 40) -- Chỉ còn lại thanh TitleBar
+        Container.Visible = false
+        MainFrame.Size = UDim2.new(0, 220, 0, 40)
         ToggleBtn.Text = "  ▶ Xray Controller"
     else
         MainFrame.Size = UDim2.new(0, 220, 0, 395)
@@ -126,10 +132,8 @@ ToggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+-- [[ HEARTBEAT LOOP ]]
 SpeedVal.FocusLost:Connect(function() currentSpeed = tonumber(SpeedVal.Text) or 1 end)
-
--- [[ LOOP CHỨC NĂNG ]]
 runService.Heartbeat:Connect(function(dt)
     local char = lp.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
@@ -140,12 +144,5 @@ runService.Heartbeat:Connect(function(dt)
             root.CFrame = root.CFrame + (moveVec.Unit * (currentSpeed * 50 * dt))
         end
         if ghimActive and lockedPos then root.CFrame = lockedPos; root.Velocity = Vector3.new(0,0,0) end
-        if xrayActive then
-            for _, p in pairs(game.Players:GetPlayers()) do
-                if p ~= lp and p.Character and not p.Character:FindFirstChild("TrVu_ESP") then
-                    local h = Instance.new("Highlight", p.Character); h.Name = "TrVu_ESP"; h.FillColor = Color3.new(1,0,0)
-                end
-            end
-        end
     end
 end)

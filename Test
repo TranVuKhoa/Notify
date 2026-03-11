@@ -170,4 +170,4 @@ runService.Heartbeat:Connect(function(dt)
     if airWalkActive and airWalkPart then airWalkPart.Position = target.Position - Vector3.new(0, 3.5, 0) end
 end)
 
-SendNotify("VŨ KHOA", "Đã Fix Triệt Để Lỗi Kéo Menu!", 3)
+SendNotify("VŨ KHOA", "Hoạt Đông -(Khoa Đz)-!", 3)

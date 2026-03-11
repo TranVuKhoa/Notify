@@ -2,8 +2,8 @@ local lp = game:GetService("Players").LocalPlayer
 local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
 
--- Xóa UI cũ để tránh lỗi chồng chéo
-local oldUI = game:GetService("CoreGui"):FindFirstChild("TrVuKhoaa_Squircle")
+-- Xóa UI cũ
+local oldUI = game:GetService("CoreGui"):FindFirstChild("TrVuKhoaa_Final_Fix")
 if oldUI then oldUI:Destroy() end
 
 -- [[ HÀM THÔNG BÁO ]]
@@ -13,7 +13,7 @@ local function CreateNotify(title, text, duration)
     mf.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     mf.Size = UDim2.new(0, 260, 0, 75)
     mf.Position = UDim2.new(1, 10, 1, -100)
-    Instance.new("UICorner", mf).CornerRadius = UDim.new(0, 8) -- Vuông tròn
+    Instance.new("UICorner", mf).CornerRadius = UDim.new(0, 8)
     local s = Instance.new("UIStroke", mf)
     s.Color = Color3.fromRGB(255, 255, 0); s.Thickness = 2
 
@@ -31,72 +31,89 @@ end
 
 -- [[ GIAO DIỆN CHÍNH ]]
 local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
-ScreenGui.Name = "TrVuKhoaa_Squircle"
+ScreenGui.Name = "TrVuKhoaa_Final_Fix"
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.Position = UDim2.new(0.5, -110, 0.3, 0)
 MainFrame.Size = UDim2.new(0, 220, 0, 380)
 MainFrame.ClipsDescendants = true
-MainFrame.BorderSizePixel = 0
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8) -- Squircle style
+MainFrame.Active = true -- Cần thiết để kéo thả
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
--- Title Bar (Màu Đen Tuyệt Đối)
+-- Title Bar (Màu Đen - Handle để kéo)
 local TitleBar = Instance.new("Frame", MainFrame)
 TitleBar.Size = UDim2.new(1, 0, 0, 40)
 TitleBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 TitleBar.BorderSizePixel = 0
+TitleBar.Active = true
 
 local ToggleBtn = Instance.new("TextButton", TitleBar)
 ToggleBtn.Text = "  🔻 TRVŨKHOAA"
-ToggleBtn.Size = UDim2.new(1, -45, 1, 0)
+ToggleBtn.Size = UDim2.new(1, -50, 1, 0)
 ToggleBtn.BackgroundTransparency = 1
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- Màu Trắng
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleBtn.Font = "GothamBold"; ToggleBtn.TextSize = 13; ToggleBtn.TextXAlignment = "Left"
 
 local CloseBtn = Instance.new("TextButton", TitleBar)
 CloseBtn.Text = "✕"
 CloseBtn.Size = UDim2.new(0, 40, 1, 0)
 CloseBtn.Position = UDim2.new(1, -40, 0, 0)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Xung quanh màu đen
+CloseBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Nền đen theo yêu cầu
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.Font = "GothamBold"; CloseBtn.TextSize = 16; CloseBtn.BorderSizePixel = 0
+CloseBtn.Font = "GothamBold"; CloseBtn.TextSize = 18; CloseBtn.BorderSizePixel = 0
 
--- Floating Icon (Nút tròn khi đóng)
+-- Floating Icon (Nút tròn khi đóng hẳn)
 local FloatingBtn = Instance.new("ImageButton", ScreenGui)
 FloatingBtn.Size = UDim2.new(0, 55, 0, 55)
-FloatingBtn.Position = UDim2.new(0, 20, 0, 20)
-FloatingBtn.BackgroundColor3 = Color3.fromRGB(114, 137, 218)
+FloatingBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
+FloatingBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 FloatingBtn.Image = "rbxassetid://6031171742"
 FloatingBtn.Visible = false
 Instance.new("UICorner", FloatingBtn).CornerRadius = UDim.new(1, 0)
-local fs = Instance.new("UIStroke", FloatingBtn); fs.Color = Color3.new(1,1,1); fs.Thickness = 2
+Instance.new("UIStroke", FloatingBtn).Color = Color3.new(1,1,1)
 
 -- Danh sách chức năng
 local Content = Instance.new("ScrollingFrame", MainFrame)
-Content.Size = UDim2.new(1, 0, 1, -40); Content.Position = UDim2.new(0, 0, 0, 40)
-Content.BackgroundTransparency = 1; Content.ScrollBarThickness = 0; Content.CanvasSize = UDim2.new(0,0,0,340)
+Content.Size = UDim2.new(1, 0, 1, -45); Content.Position = UDim2.new(0, 0, 0, 45)
+Content.BackgroundTransparency = 1; Content.ScrollBarThickness = 0; Content.CanvasSize = UDim2.new(0,0,0,350)
 local UIList = Instance.new("UIListLayout", Content); UIList.Padding = UDim.new(0, 6); UIList.HorizontalAlignment = "Center"
 
--- [[ LOGIC DRAG & CLICK ]]
-local function drag(obj, handle)
-    local dragToggle, dragStart, startPos
+-- [[ FIX LOGIC KÉO THẢ (DRAG) ]]
+local function makeDraggable(window, handle)
+    local dragging, dragInput, dragStart, startPos
     handle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragToggle = true; dragStart = input.Position; startPos = obj.Position
+            dragging = true
+            dragStart = input.Position
+            startPos = window.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
         end
     end)
-    uis.InputChanged:Connect(function(input)
-        if dragToggle and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    
+    handle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
         end
     end)
-    uis.InputEnded:Connect(function(input) dragToggle = false end)
-end
-drag(MainFrame, TitleBar)
-drag(FloatingBtn, FloatingBtn)
 
+    uis.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            window.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+makeDraggable(MainFrame, TitleBar) -- Nắm TitleBar đen để kéo
+makeDraggable(FloatingBtn, FloatingBtn) -- Nút tròn cũng có thể kéo
+
+-- [[ LOGIC ĐÓNG / MỞ ]]
 local isOpen = true
 ToggleBtn.MouseButton1Click:Connect(function()
     isOpen = not isOpen
@@ -106,7 +123,6 @@ end)
 
 CloseBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = false; FloatingBtn.Visible = true
-    FloatingBtn.Position = UDim2.new(0, MainFrame.AbsolutePosition.X, 0, MainFrame.AbsolutePosition.Y)
 end)
 
 FloatingBtn.MouseButton1Click:Connect(function()
@@ -119,11 +135,11 @@ local function createBtn(txt, callback)
     btn.Size = UDim2.new(0.92, 0, 0, 38); btn.BackgroundTransparency = 1; btn.Text = ""
     
     local bg = Instance.new("Frame", btn)
-    bg.Size = UDim2.new(1, 0, 1, 0); bg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    bg.Size = UDim2.new(1, 0, 1, 0); bg.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 6)
     
     local box = Instance.new("Frame", btn)
-    box.Size = UDim2.new(0, 16, 0, 16); box.Position = UDim2.new(0, 12, 0.5, -8); box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    box.Size = UDim2.new(0, 16, 0, 16); box.Position = UDim2.new(0, 12, 0.5, -8); box.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
     
     local lbl = Instance.new("TextLabel", btn)
@@ -132,7 +148,7 @@ local function createBtn(txt, callback)
     local active = false
     btn.MouseButton1Click:Connect(function()
         active = not active
-        box.BackgroundColor3 = active and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(40, 40, 40)
+        box.BackgroundColor3 = active and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(45, 45, 45)
         lbl.TextColor3 = active and Color3.new(1, 1, 1) or Color3.new(0.8, 0.8, 0.8)
         callback(active)
         CreateNotify("VKhoa Sync", txt.." : "..(active and "BẬT" or "TẮT"), 2)
@@ -140,8 +156,8 @@ local function createBtn(txt, callback)
 end
 
 -- Tính năng
-local ghimActive, xrayActive, ghostActive, airWalkActive = false, false, false, false
-local lockedPos, airWalkPart, ghostModel = nil, nil, nil
+local ghimActive, xrayActive, ghostActive = false, false, false
+local lockedPos, ghostModel = nil, nil
 
 createBtn("Ghim Vị Trí", function(s) ghimActive = s; if s and lp.Character then lockedPos = lp.Character.HumanoidRootPart.CFrame end end)
 createBtn("Xray ESP", function(s) xrayActive = s end)
@@ -152,11 +168,6 @@ createBtn("Ghost Mode", function(s)
         for _, v in pairs(ghostModel:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false; v.Transparency = 0.5 end end
         workspace.CurrentCamera.CameraSubject = ghostModel:FindFirstChild("Humanoid")
     elseif ghostModel then ghostModel:Destroy(); workspace.CurrentCamera.CameraSubject = lp.Character.Humanoid end
-end)
-createBtn("Air Walk", function(s)
-    airWalkActive = s
-    if s then airWalkPart = Instance.new("Part", workspace); airWalkPart.Size = Vector3.new(15, 0.5, 15); airWalkPart.Anchored = true; airWalkPart.Transparency = 0.5
-    elseif airWalkPart then airWalkPart:Destroy() end
 end)
 
 -- Heartbeat Loop
@@ -175,7 +186,6 @@ runService.Heartbeat:Connect(function(dt)
     end
 
     if ghimActive and lockedPos and not ghostActive then root.CFrame = lockedPos; root.Velocity = Vector3.new(0,0,0) end
-    if airWalkActive and airWalkPart then airWalkPart.Position = root.Position - Vector3.new(0, 3.5, 0) end
 end)
 
-CreateNotify("SYSTEM READY", "X-Ray Controller VuKhoaa Squircle Online!", 5)
+CreateNotify("V KHOA FIX", "Đã sửa lỗi kéo thả TitleBar!", 5)

@@ -78,7 +78,7 @@ local TitleText = Instance.new("TextLabel", TitleBar)
 TitleText.Size = UDim2.new(1, -70, 1, 0); TitleText.Position = UDim2.new(0, 35, 0, 0); TitleText.Text = "VŨ KHOA V31"; TitleText.TextColor3 = Color3.new(1,1,1); TitleText.BackgroundTransparency = 1; TitleText.TextXAlignment = "Left"; TitleText.Font = Enum.Font.GothamBold; TitleText.TextSize = 12
 
 local CloseBtn = Instance.new("TextButton", TitleBar)
-CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -35, 0.5, -15); CloseBtn.Text = "✕"; CloseBtn.TextColor3 = Color3.fromRGB(255, 60, 60); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 18
+CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -35, 0.5, -15); CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 60, 60); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 18
 
 -- 4. SCROLL CONTENT
 local Scroll = Instance.new("ScrollingFrame", MainFrame)
@@ -178,4 +178,4 @@ runService.Heartbeat:Connect(function(dt)
     if airWalkActive and airWalkPart then airWalkPart.Position = target.Position - Vector3.new(0, 3.5, 0) end
 end)
 
-SendNotify("VŨ KHOA", "Header đã quay trở lại! Sẵn sàng bay mượt.", 4)
+SendNotify("VŨ KHOA", "Menu Đã Hoạt Động", 4)

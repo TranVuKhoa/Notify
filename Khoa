@@ -1,8 +1,9 @@
--- [[ VŨ KHOA V31 PRO - FIXED DRAG ]]
+--cac
 local lp = game:GetService("Players").LocalPlayer
 local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
 local coreGui = game:GetService("CoreGui")
+local tweenService = game:GetService("TweenService")
 
 -- Xóa UI cũ
 for _, old in pairs(coreGui:GetChildren()) do
@@ -11,13 +12,14 @@ for _, old in pairs(coreGui:GetChildren()) do
     end
 end
 
+-- Biến logic (Giữ nguyên)
 local localMoveDir = Vector3.new(0,0,0)
 local currentSpeed = 2 
 local ghimActive, xrayActive, ghostActive, airWalkActive = false, false, false, false
 local notifyEnabled = true
 local lockedPos, airWalkPart, ghostModel = nil, nil, nil
 
--- 1. NOTIFY SYSTEM
+-- 1. NOTIFY SYSTEM (Giữ nguyên)
 local function SendNotify(title, text, duration)
     if not notifyEnabled then return end
     local NotifyGui = coreGui:FindFirstChild("VuKhoa_Notify_System") or Instance.new("ScreenGui", coreGui)
@@ -34,26 +36,41 @@ end
 -- 2. MAIN UI
 local ScreenGui = Instance.new("ScreenGui", coreGui); ScreenGui.Name = "TrVuKhoaa_Sync_UI"
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 210, 0, 410); MainFrame.Position = UDim2.new(0.5, -105, 0.4, 0); MainFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5); MainFrame.BorderSizePixel = 0; MainFrame.Active = true
+MainFrame.Size = UDim2.new(0, 210, 0, 410); MainFrame.Position = UDim2.new(0.5, -105, 0.4, 0); MainFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5); MainFrame.BorderSizePixel = 0; MainFrame.Active = true; MainFrame.Visible = true
 
-local TitleBar = Instance.new("Frame", MainFrame)
-TitleBar.Size = UDim2.new(1, 0, 0, 35); TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20); TitleBar.BorderSizePixel = 0
-local TitleText = Instance.new("TextLabel", TitleBar)
-TitleText.Size = UDim2.new(1, -60, 1, 0); TitleText.Position = UDim2.new(0, 35, 0, 0); TitleText.BackgroundTransparency = 1; TitleText.Text = "Xray Controller"; TitleText.Font = Enum.Font.Antique; TitleText.TextColor3 = Color3.fromRGB(220, 220, 220); TitleText.TextSize = 17; TitleText.TextXAlignment = "Left"
-
-local CollapseBtn = Instance.new("TextButton", TitleBar)
-CollapseBtn.Size = UDim2.new(0, 25, 0, 25); CollapseBtn.Position = UDim2.new(0, 5, 0, 5); CollapseBtn.BackgroundTransparency = 1; CollapseBtn.Text = "▼"; CollapseBtn.TextColor3 = Color3.new(1,1,1); CollapseBtn.TextSize = 14
-local CloseBtn = Instance.new("TextButton", TitleBar)
-CloseBtn.Size = UDim2.new(0, 25, 0, 25); CloseBtn.Position = UDim2.new(1, -28, 0, 5); CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80); CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 16
-
-local Container = Instance.new("Frame", MainFrame)
-Container.Size = UDim2.new(1, 0, 1, -35); Container.Position = UDim2.new(0, 0, 0, 35); Container.BackgroundTransparency = 1
-
+-- [ THIẾT KẾ NÚT VK HÌNH TRÒN RGB ]
 local OpenBtn = Instance.new("TextButton", ScreenGui)
-OpenBtn.Size = UDim2.new(0, 45, 0, 45); OpenBtn.Position = UDim2.new(1, -60, 0.5, 0); OpenBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15); OpenBtn.Text = "VK"; OpenBtn.TextColor3 = Color3.fromRGB(0, 150, 255); OpenBtn.Font = Enum.Font.GothamBold; OpenBtn.Visible = false; OpenBtn.Active = true
-Instance.new("UICorner", OpenBtn); local OpStr = Instance.new("UIStroke", OpenBtn); OpStr.Color = Color3.fromRGB(0,150,255)
+OpenBtn.Name = "VK_Circle_Btn"
+OpenBtn.Size = UDim2.new(0, 55, 0, 55) -- Kích thước tròn
+OpenBtn.Position = UDim2.new(1, -70, 0.5, 0)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+OpenBtn.Text = "VK"
+OpenBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenBtn.Font = Enum.Font.GothamBold
+OpenBtn.TextSize = 18
+OpenBtn.Visible = false -- Chỉ hiện khi đóng MainFrame
+OpenBtn.Active = true
 
--- [ HÀM KÉO THẢ CHUNG ]
+-- Làm tròn nút
+local BtnCorner = Instance.new("UICorner", OpenBtn)
+BtnCorner.CornerRadius = UDim.new(1, 0) -- Bo tròn tuyệt đối thành hình tròn
+
+-- Viền RGB
+local BtnStroke = Instance.new("UIStroke", OpenBtn)
+BtnStroke.Thickness = 3
+BtnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+-- Hiệu ứng RGB cho viền
+task.spawn(function()
+    local hue = 0
+    while task.wait() do
+        hue = hue + (1/300) -- Tốc độ đổi màu
+        if hue > 1 then hue = 0 end
+        BtnStroke.Color = Color3.fromHSV(hue, 1, 1)
+    end
+end)
+
+-- [ HÀM KÉO THẢ ]
 local function MakeDraggable(obj, dragTarget)
     local dragging, dragInput, dragStart, startPos
     obj.InputBegan:Connect(function(input)
@@ -77,11 +94,25 @@ local function MakeDraggable(obj, dragTarget)
     end)
 end
 
--- Áp dụng kéo thả cho TitleBar (kéo menu chính) và OpenBtn (kéo nút VK)
+-- 3. CÁC THÀNH PHẦN MENU CHÍNH (Giữ nguyên layout của bạn)
+local TitleBar = Instance.new("Frame", MainFrame)
+TitleBar.Size = UDim2.new(1, 0, 0, 35); TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20); TitleBar.BorderSizePixel = 0
+local TitleText = Instance.new("TextLabel", TitleBar)
+TitleText.Size = UDim2.new(1, -60, 1, 0); TitleText.Position = UDim2.new(0, 35, 0, 0); TitleText.BackgroundTransparency = 1; TitleText.Text = "Xray Controller"; TitleText.Font = Enum.Font.Antique; TitleText.TextColor3 = Color3.fromRGB(220, 220, 220); TitleText.TextSize = 17; TitleText.TextXAlignment = "Left"
+
+local CollapseBtn = Instance.new("TextButton", TitleBar)
+CollapseBtn.Size = UDim2.new(0, 25, 0, 25); CollapseBtn.Position = UDim2.new(0, 5, 0, 5); CollapseBtn.BackgroundTransparency = 1; CollapseBtn.Text = "▼"; CollapseBtn.TextColor3 = Color3.new(1,1,1); CollapseBtn.TextSize = 14
+local CloseBtn = Instance.new("TextButton", TitleBar)
+CloseBtn.Size = UDim2.new(0, 25, 0, 25); CloseBtn.Position = UDim2.new(1, -28, 0, 5); CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80); CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 16
+
+local Container = Instance.new("Frame", MainFrame)
+Container.Size = UDim2.new(1, 0, 1, -35); Container.Position = UDim2.new(0, 0, 0, 35); Container.BackgroundTransparency = 1
+
+-- Áp dụng kéo thả
 MakeDraggable(TitleBar, MainFrame)
 MakeDraggable(OpenBtn, OpenBtn)
 
--- Các chức năng còn lại (giữ nguyên logic của bạn)
+-- HÀM TẠO NÚT TRONG MENU
 local function CreateBtn(parent, text, callback, isGrid, defaultActive)
     local Btn = Instance.new("TextButton", parent); Btn.Size = isGrid and UDim2.new(0.45, 0, 0, 30) or UDim2.new(0.9, 0, 0, 30); Btn.BackgroundTransparency = 1; Btn.Text = ""
     local Square = Instance.new("Frame", Btn); Square.Size = UDim2.new(0, 18, 0, 18); Square.Position = UDim2.new(0, 5, 0.5, -9); Square.BackgroundColor3 = defaultActive and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(25, 25, 25); Square.BorderSizePixel = 0
@@ -95,6 +126,7 @@ local function CreateBtn(parent, text, callback, isGrid, defaultActive)
     end)
 end
 
+-- Layouts
 local Grid = Instance.new("Frame", Container); Grid.Size = UDim2.new(1, 0, 0, 100); Grid.Position = UDim2.new(0, 10, 0, 10); Grid.BackgroundTransparency = 1
 Instance.new("UIGridLayout", Grid).CellSize = UDim2.new(0.45, 0, 0, 30)
 local moves = {{"Tiến",Vector3.new(0,0,-1)},{"Lùi",Vector3.new(0,0,1)},{"Trái",Vector3.new(-1,0,0)},{"Phải",Vector3.new(1,0,0)},{"Lên",Vector3.new(0,1,0)},{"Xuống",Vector3.new(0,-1,0)}}
@@ -123,16 +155,11 @@ local SpeedBar = Instance.new("Frame", MainFrame); SpeedBar.Size = UDim2.new(1, 
 local SpeedInput = Instance.new("TextBox", SpeedBar); SpeedInput.Size = UDim2.new(0.5, 0, 1, 0); SpeedInput.Position = UDim2.new(0, 40, 0, 0); SpeedInput.BackgroundTransparency = 1; SpeedInput.Text = "2"; SpeedInput.TextColor3 = Color3.new(1,1,1); SpeedInput.Font = Enum.Font.Antique; SpeedInput.TextSize = 18; SpeedInput.TextXAlignment = "Left"
 SpeedInput.FocusLost:Connect(function() currentSpeed = tonumber(SpeedInput.Text) or 2 end)
 
-local collapsed = false
-CollapseBtn.MouseButton1Click:Connect(function()
-    collapsed = not collapsed
-    Container.Visible = not collapsed; SpeedBar.Visible = not collapsed
-    MainFrame.Size = collapsed and UDim2.new(0, 210, 0, 35) or UDim2.new(0, 210, 0, 410)
-    CollapseBtn.Text = collapsed and "▶" or "▼"
-end)
+-- Đóng/Mở logic
 CloseBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false; OpenBtn.Visible = true end)
 OpenBtn.MouseButton1Click:Connect(function() MainFrame.Visible = true; OpenBtn.Visible = false end)
 
+-- [ VÒNG LẶP HEARTBEAT ]
 runService.Heartbeat:Connect(function(dt)
     local char = lp.Character; if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local root = char.HumanoidRootPart
@@ -156,4 +183,4 @@ runService.Heartbeat:Connect(function(dt)
     if airWalkActive and airWalkPart then airWalkPart.Position = target.Position - Vector3.new(0, 3.5, 0) end
 end)
 
-SendNotify("VŨ KHOA", "Hoạt Động!", 3)
+SendNotify("VŨ KHOA", "Đã Sẵn Sàng!", 3)

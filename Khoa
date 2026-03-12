@@ -1,4 +1,4 @@
--- [[ VŨ KHOA V31 PRO - FULL CONTROL & LEFT MINIMIZE ]]
+-- [[ VŨ KHOA V31 PRO - CLEAN UI & SPEED SLIDER ]]
 local lp = game:GetService("Players").LocalPlayer
 local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
@@ -36,8 +36,11 @@ end
 -- 2. GIAO DIỆN CHÍNH
 local ScreenGui = Instance.new("ScreenGui", coreGui); ScreenGui.Name = "TrVuKhoaa_Sync_UI"
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 210, 0, 380); MainFrame.Position = UDim2.new(0.5, -105, 0.4, 0); MainFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5); MainFrame.BorderSizePixel = 0; MainFrame.Active = true
+MainFrame.Size = UDim2.new(0, 210, 0, 400); MainFrame.Position = UDim2.new(0.5, -105, 0.4, 0); MainFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 8); MainFrame.BorderSizePixel = 0; MainFrame.Active = true
 MainFrame.ClipsDescendants = true
+
+local MainCorner = Instance.new("UICorner", MainFrame); MainCorner.CornerRadius = UDim.new(0, 8)
+local MainStroke = Instance.new("UIStroke", MainFrame); MainStroke.Color = Color3.fromRGB(40, 40, 40); MainStroke.Thickness = 1.5
 
 -- NÚT MỞ BẰNG ẢNH TRÒN RGB
 local OpenBtn = Instance.new("ImageButton", ScreenGui)
@@ -55,40 +58,41 @@ end)
 local ScrollContainer = Instance.new("ScrollingFrame", MainFrame)
 ScrollContainer.Size = UDim2.new(1, 0, 1, -40); ScrollContainer.Position = UDim2.new(0, 0, 0, 40)
 ScrollContainer.BackgroundTransparency = 1; ScrollContainer.BorderSizePixel = 0
-ScrollContainer.ScrollBarThickness = 3; ScrollContainer.CanvasSize = UDim2.new(0, 0, 0, 500)
+ScrollContainer.ScrollBarThickness = 2; ScrollContainer.CanvasSize = UDim2.new(0, 0, 0, 520)
 ScrollContainer.ScrollBarImageColor3 = Color3.fromRGB(0, 120, 255)
 
 local ListLayout = Instance.new("UIListLayout", ScrollContainer)
-ListLayout.Padding = UDim.new(0, 5); ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ListLayout.Padding = UDim.new(0, 8); ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local function CreateBtn(parent, text, callback, defaultActive)
-    local Btn = Instance.new("TextButton", parent); Btn.Size = UDim2.new(0.9, 0, 0, 30); Btn.BackgroundTransparency = 1; Btn.Text = ""
-    local Square = Instance.new("Frame", Btn); Square.Size = UDim2.new(0, 18, 0, 18); Square.Position = UDim2.new(0, 5, 0.5, -9); Square.BackgroundColor3 = defaultActive and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(25, 25, 25); Square.BorderSizePixel = 0
-    local Label = Instance.new("TextLabel", Btn); Label.Size = UDim2.new(1, -25, 1, 0); Label.Position = UDim2.new(0, 28, 0, 0); Label.BackgroundTransparency = 1; Label.Text = text; Label.Font = Enum.Font.Antique; Label.TextColor3 = Color3.new(1,1,1); Label.TextSize = 15; Label.TextXAlignment = "Left"
+    local Btn = Instance.new("TextButton", parent); Btn.Size = UDim2.new(0.9, 0, 0, 32); Btn.BackgroundTransparency = 1; Btn.Text = ""
+    local Square = Instance.new("Frame", Btn); Square.Size = UDim2.new(0, 16, 0, 16); Square.Position = UDim2.new(0, 8, 0.5, -8); Square.BackgroundColor3 = defaultActive and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(30, 30, 30); Square.BorderSizePixel = 0
+    Instance.new("UICorner", Square).CornerRadius = UDim.new(0, 4)
+    local Label = Instance.new("TextLabel", Btn); Label.Size = UDim2.new(1, -35, 1, 0); Label.Position = UDim2.new(0, 32, 0, 0); Label.BackgroundTransparency = 1; Label.Text = text; Label.Font = Enum.Font.Gotham; Label.TextColor3 = Color3.fromRGB(230, 230, 230); Label.TextSize = 14; Label.TextXAlignment = "Left"
     local active = defaultActive or false
     Btn.MouseButton1Click:Connect(function()
         active = not active
-        Square.BackgroundColor3 = active and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(25, 25, 25)
+        Square.BackgroundColor3 = active and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(30, 30, 30)
         callback(active)
     end)
 end
 
--- PHẦN ĐIỀU KHIỂN (DI CHUYỂN)
-local ControlLabel = Instance.new("TextLabel", ScrollContainer)
-ControlLabel.Size = UDim2.new(0.9, 0, 0, 20); ControlLabel.Text = "--- DI CHUYỂN ---"; ControlLabel.TextColor3 = Color3.fromRGB(150,150,150); ControlLabel.BackgroundTransparency = 1; ControlLabel.TextSize = 14
-
+-- NÚT DI CHUYỂN (KHÔNG CÒN NHÃN TIÊU ĐỀ)
 local Grid = Instance.new("Frame", ScrollContainer); Grid.Size = UDim2.new(0.9, 0, 0, 100); Grid.BackgroundTransparency = 1
 Instance.new("UIGridLayout", Grid).CellSize = UDim2.new(0.48, 0, 0, 30)
 
 local moves = {{"Tiến",Vector3.new(0,0,-1)},{"Lùi",Vector3.new(0,0,1)},{"Trái",Vector3.new(-1,0,0)},{"Phải",Vector3.new(1,0,0)},{"Lên",Vector3.new(0,1,0)},{"Xuống",Vector3.new(0,-1,0)}}
-for _, v in pairs(moves) do 
-    CreateBtn(Grid, v[1], function(s) if s then localMoveDir += v[2] else localMoveDir -= v[2] end end) 
-end
+for _, v in pairs(moves) do CreateBtn(Grid, v[1], function(s) if s then localMoveDir += v[2] else localMoveDir -= v[2] end end) end
 
--- PHẦN TÍNH NĂNG
-local FeatureLabel = Instance.new("TextLabel", ScrollContainer)
-FeatureLabel.Size = UDim2.new(0.9, 0, 0, 20); FeatureLabel.Text = "--- TÍNH NĂNG ---"; FeatureLabel.TextColor3 = Color3.fromRGB(150,150,150); FeatureLabel.BackgroundTransparency = 1; FeatureLabel.TextSize = 14
+-- THANH TỐC ĐỘ (SPEED SLIDER NHẬP LIỆU)
+local SpeedFrame = Instance.new("Frame", ScrollContainer); SpeedFrame.Size = UDim2.new(0.9, 0, 0, 35); SpeedFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Instance.new("UICorner", SpeedFrame).CornerRadius = UDim.new(0, 4)
+local SpeedLabel = Instance.new("TextLabel", SpeedFrame); SpeedLabel.Size = UDim2.new(0.6, 0, 1, 0); SpeedLabel.Position = UDim2.new(0, 10, 0, 0); SpeedLabel.Text = "Tốc độ di chuyển:"; SpeedLabel.TextColor3 = Color3.new(1,1,1); SpeedLabel.BackgroundTransparency = 1; SpeedLabel.TextXAlignment = "Left"; SpeedLabel.Font = Enum.Font.Gotham; SpeedLabel.TextSize = 13
+local SpeedInput = Instance.new("TextBox", SpeedFrame); SpeedInput.Size = UDim2.new(0.3, 0, 0.7, 0); SpeedInput.Position = UDim2.new(0.65, 0, 0.15, 0); SpeedInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40); SpeedInput.Text = "2"; SpeedInput.TextColor3 = Color3.fromRGB(0, 150, 255); SpeedInput.Font = Enum.Font.GothamBold; SpeedInput.TextSize = 14
+Instance.new("UICorner", SpeedInput).CornerRadius = UDim.new(0, 4)
+SpeedInput.FocusLost:Connect(function() currentSpeed = tonumber(SpeedInput.Text) or 2 end)
 
+-- CÁC TÍNH NĂNG KHÁC (KHÔNG CÒN NHÃN TIÊU ĐỀ)
 CreateBtn(ScrollContainer, "Hiện Notify", function(s) notifyEnabled = s end, true)
 CreateBtn(ScrollContainer, "Air Walk", function(s)
     airWalkActive = s
@@ -106,29 +110,30 @@ CreateBtn(ScrollContainer, "Ghost Mode", function(s)
     elseif ghostModel then ghostModel:Destroy(); workspace.CurrentCamera.CameraSubject = lp.Character.Humanoid end
 end)
 
--- 4. TITLE BAR (THANH TIÊU ĐỀ)
+-- 4. TITLE BAR (THANH TIÊU ĐỀ ĐẸP)
 local TitleBar = Instance.new("Frame", MainFrame)
-TitleBar.Size = UDim2.new(1, 0, 0, 35); TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+TitleBar.Size = UDim2.new(1, 0, 0, 38); TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+local TitleLine = Instance.new("Frame", TitleBar); TitleLine.Size = UDim2.new(1, 0, 0, 2); TitleLine.Position = UDim2.new(0, 0, 1, -2); TitleLine.BackgroundColor3 = Color3.fromRGB(0, 120, 255); TitleLine.BorderSizePixel = 0
 
--- NÚT RÚT GỌN (DỜI QUA TRÁI)
 local MiniBtn = Instance.new("TextButton", TitleBar)
-MiniBtn.Size = UDim2.new(0, 30, 0, 30); MiniBtn.Position = UDim2.new(0, 5, 0, 2); MiniBtn.Text = "▼"; MiniBtn.TextColor3 = Color3.new(1,1,1); MiniBtn.BackgroundTransparency = 1; MiniBtn.TextSize = 18
+MiniBtn.Size = UDim2.new(0, 30, 0, 30); MiniBtn.Position = UDim2.new(0, 8, 0.5, -15); MiniBtn.Text = "▼"; MiniBtn.TextColor3 = Color3.fromRGB(0, 150, 255); MiniBtn.BackgroundTransparency = 1; MiniBtn.TextSize = 20; MiniBtn.Font = Enum.Font.GothamBold
 
 local TitleText = Instance.new("TextLabel", TitleBar)
-TitleText.Size = UDim2.new(1, -70, 1, 0); TitleText.Position = UDim2.new(0, 40, 0, 0); TitleText.Text = "VK V31 PRO"; TitleText.TextColor3 = Color3.new(1,1,1); TitleText.BackgroundTransparency = 1; TitleText.TextXAlignment = "Left"; TitleText.Font = Enum.Font.GothamBold
+TitleText.Size = UDim2.new(1, -80, 1, 0); TitleText.Position = UDim2.new(0, 45, 0, 0); TitleText.Text = "VŨ KHOA V31 PRO"; TitleText.TextColor3 = Color3.new(1,1,1); TitleText.BackgroundTransparency = 1; TitleText.TextXAlignment = "Left"; TitleText.Font = Enum.Font.Michroma; TitleText.TextSize = 14
+local TitleShadow = Instance.new("TextLabel", TitleText); TitleShadow.Size = UDim2.new(1,0,1,0); TitleShadow.Position = UDim2.new(0,1,0,1); TitleShadow.Text = "VŨ KHOA V31 PRO"; TitleShadow.TextColor3 = Color3.new(0,0,0); TitleShadow.BackgroundTransparency = 1; TitleShadow.ZIndex = 0; TitleShadow.Font = Enum.Font.Michroma; TitleShadow.TextSize = 14; TitleShadow.TextXAlignment = "Left"; TitleShadow.TextTransparency = 0.5
 
 local CloseBtn = Instance.new("TextButton", TitleBar)
-CloseBtn.Size = UDim2.new(0, 25, 0, 25); CloseBtn.Position = UDim2.new(1, -28, 0, 5); CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.new(1,0,0); CloseBtn.BackgroundTransparency = 1
+CloseBtn.Size = UDim2.new(0, 25, 0, 25); CloseBtn.Position = UDim2.new(1, -30, 0.5, -12); CloseBtn.Text = "✕"; CloseBtn.TextColor3 = Color3.fromRGB(255, 50, 50); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 18
 
 -- Logic Rút Gọn
 local isMinimized = false
 MiniBtn.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     if isMinimized then
-        MainFrame:TweenSize(UDim2.new(0, 210, 0, 35), "Out", "Quart", 0.3, true)
+        MainFrame:TweenSize(UDim2.new(0, 210, 0, 38), "Out", "Quart", 0.3, true)
         MiniBtn.Text = "▶"
     else
-        MainFrame:TweenSize(UDim2.new(0, 210, 0, 380), "Out", "Quart", 0.3, true)
+        MainFrame:TweenSize(UDim2.new(0, 210, 0, 400), "Out", "Quart", 0.3, true)
         MiniBtn.Text = "▼"
     end
 end)
@@ -183,4 +188,4 @@ runService.Heartbeat:Connect(function(dt)
     if airWalkActive and airWalkPart then airWalkPart.Position = target.Position - Vector3.new(0, 3.5, 0) end
 end)
 
-SendNotify("VŨ KHOA", "Menu Hoạt Đông 😅!", 5)
+SendNotify("VŨ KHOA", "Menu Hoạt Động", 3)

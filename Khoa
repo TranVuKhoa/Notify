@@ -123,7 +123,7 @@ TitleText.Size = UDim2.new(1, -80, 1, 0); TitleText.Position = UDim2.new(0, 45, 
 local TitleShadow = Instance.new("TextLabel", TitleText); TitleShadow.Size = UDim2.new(1,0,1,0); TitleShadow.Position = UDim2.new(0,1,0,1); TitleShadow.Text = "VŨ KHOA V31 PRO"; TitleShadow.TextColor3 = Color3.new(0,0,0); TitleShadow.BackgroundTransparency = 1; TitleShadow.ZIndex = 0; TitleShadow.Font = Enum.Font.Michroma; TitleShadow.TextSize = 14; TitleShadow.TextXAlignment = "Left"; TitleShadow.TextTransparency = 0.5
 
 local CloseBtn = Instance.new("TextButton", TitleBar)
-CloseBtn.Size = UDim2.new(0, 25, 0, 25); CloseBtn.Position = UDim2.new(1, -30, 0.5, -12); CloseBtn.Text = "✕"; CloseBtn.TextColor3 = Color3.fromRGB(255, 50, 50); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 18
+CloseBtn.Size = UDim2.new(0, 25, 0, 25); CloseBtn.Position = UDim2.new(1, -30, 0.5, -12); CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 50, 50); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 18
 
 -- Logic Rút Gọn
 local isMinimized = false

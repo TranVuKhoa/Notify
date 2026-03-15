@@ -1,4 +1,4 @@
--- [[ VŨ KHOA V31 PRO - SUPREME INTEGRATED ]]
+-- [[ VŨ KHOA V31 PRO - RE-INTEGRATED ]]
 local lp = game:GetService("Players").LocalPlayer
 local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
@@ -12,11 +12,11 @@ for _, old in pairs(coreGui:GetChildren()) do
     end
 end
 
--- Biến logic
+-- Biến logic (Thêm biến tách rời)
 local localMoveDir = Vector3.new(0,0,0)
 local currentSpeed = 2 
 local ghimActive, xrayActive, ghostActive, airWalkActive, backPosActive = false, false, false, false, false
-local autoAttackActive, giantActive = false, false
+local m1AuraActive, fastAttackActive, giantActive = false, false, false
 local notifyEnabled = true
 local lockedPos, airWalkPart, ghostModel, backPosCoord = nil, nil, nil, nil
 local ASSET_ID = "rbxassetid://127697789661018"
@@ -37,7 +37,7 @@ local function SendNotify(title, text, duration)
     task.delay(duration or 3, function() if Frame then Frame:Destroy() end end)
 end
 
--- 2. GIAO DIỆN CHÍNH
+-- 2. GIAO DIỆN CHÍNH (Giữ nguyên style)
 local ScreenGui = Instance.new("ScreenGui", coreGui); ScreenGui.Name = "TrVuKhoaa_Sync_UI"
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Size = UDim2.new(0, 210, 0, 440); MainFrame.Position = UDim2.new(0.5, -105, 0.4, 0); MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12); MainFrame.Active = true; MainFrame.ClipsDescendants = true; MainFrame.BorderSizePixel = 0
@@ -70,7 +70,7 @@ local CloseBtn = Instance.new("TextButton", TitleBar); CloseBtn.Size = UDim2.new
 
 -- 4. SCROLL CONTENT
 local Scroll = Instance.new("ScrollingFrame", MainFrame)
-Scroll.Size = UDim2.new(1, 0, 1, -40); Scroll.Position = UDim2.new(0, 0, 0, 40); Scroll.BackgroundTransparency = 1; Scroll.BorderSizePixel = 0; Scroll.ScrollBarThickness = 2; Scroll.CanvasSize = UDim2.new(0, 0, 0, 700)
+Scroll.Size = UDim2.new(1, 0, 1, -40); Scroll.Position = UDim2.new(0, 0, 0, 40); Scroll.BackgroundTransparency = 1; Scroll.BorderSizePixel = 0; Scroll.ScrollBarThickness = 2; Scroll.CanvasSize = UDim2.new(0, 0, 0, 750)
 local ListLayout = Instance.new("UIListLayout", Scroll); ListLayout.Padding = UDim.new(0, 7); ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local function CreateBtn(parent, text, callback, defaultActive)
@@ -88,28 +88,27 @@ local function CreateBtn(parent, text, callback, defaultActive)
     end)
 end
 
--- Di chuyển
+-- Grid Di chuyển (Giữ nguyên)
 local Grid = Instance.new("Frame", Scroll); Grid.Size = UDim2.new(0.9, 0, 0, 100); Grid.BackgroundTransparency = 1
 Instance.new("UIGridLayout", Grid).CellSize = UDim2.new(0.48, 0, 0, 30); Grid.UIGridLayout.CellPadding = UDim2.new(0.04, 0, 0, 5)
 local moves = {{"Tiến",Vector3.new(0,0,-1)},{"Lùi",Vector3.new(0,0,1)},{"Trái",Vector3.new(-1,0,0)},{"Phải",Vector3.new(1,0,0)},{"Lên",Vector3.new(0,1,0)},{"Xuống",Vector3.new(0,-1,0)}}
 for _, v in pairs(moves) do CreateBtn(Grid, v[1], function(s) if s then localMoveDir += v[2] else localMoveDir -= v[2] end end) end
 
--- TÍNH NĂNG TÍCH HỢP MỚI
-CreateBtn(Scroll, "Auto Attack (Aura+Fast)", function(s) 
-    autoAttackActive = s 
+-- TÍNH NĂNG TÍCH HỢP (Tách rời M1 Aura và Fast Attack)
+CreateBtn(Scroll, "M1 Aura (Phạm vi)", function(s) m1AuraActive = s end)
+
+CreateBtn(Scroll, "Fast Attack (Tốc độ)", function(s) 
+    fastAttackActive = s 
     if s then
         pcall(function()
-            -- Load FastMax Setting
             loadstring(game:HttpGet("https://raw.githubusercontent.com/AnhDzaiScript/Setting/refs/heads/main/FastMax.lua"))()
-            -- Load NaNa Aura
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/tamdznanatv/superattackm1/refs/heads/main/NaNaXtrieu.luau"))()
         end)
     end
 end)
 
 CreateBtn(Scroll, "Khổng Lồ", function(s)
     giantActive = s
-    local char = lp.Character or workspace.Characters:FindFirstChild(lp.Name)
+    local char = lp.Character
     if char then
         for _, v in pairs(char:GetDescendants()) do
             if v:IsA("BasePart") then
@@ -145,13 +144,13 @@ CreateBtn(Scroll, "Air Walk", function(s) airWalkActive = s if s then airWalkPar
 local OpenBtn = Instance.new("ImageButton", ScreenGui); OpenBtn.Size = UDim2.new(0, 55, 0, 55); OpenBtn.Position = UDim2.new(1, -65, 0.5, -27); OpenBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15); OpenBtn.Image = ASSET_ID; OpenBtn.Visible = false; OpenBtn.Active = true; Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
 MakeDraggable(MainFrame); MakeDraggable(OpenBtn)
 MiniBtn.MouseButton1Click:Connect(function() MainFrame:TweenSize(MainFrame.Size.Y.Offset == 440 and UDim2.new(0, 210, 0, 38) or UDim2.new(0, 210, 0, 440), "Out", "Quart", 0.3, true); MiniBtn.Text = MainFrame.Size.Y.Offset == 440 and "▶" or "▼" end)
-CloseBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false; OpenBtn.Visible = true; SendNotify("VŨ KHOA", "Menu đã ẩn!", 2) end)
+CloseBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false; OpenBtn.Visible = true end)
 OpenBtn.MouseButton1Click:Connect(function() MainFrame.Visible = true; OpenBtn.Visible = false end)
 
--- VÒNG LẶP FAST ATTACK LOGIC (Tích hợp từ code của bạn)
+-- VÒNG LẶP XỬ LÝ ATTACK (AURA + FAST INTEGRATED)
 task.spawn(function()
     while task.wait() do
-        if not autoAttackActive then continue end
+        if not m1AuraActive then continue end
         pcall(function()
             local char = lp.Character
             if not char then return end
@@ -172,7 +171,12 @@ task.spawn(function()
 
             if #targets > 0 then
                 local net = rs:WaitForChild("Modules"):WaitForChild("Net")
-                net:WaitForChild("RE/RegisterAttack"):FireServer(0)
+                
+                -- Logic Fast Attack: Gửi Register liên tục nếu bật
+                if fastAttackActive then
+                    net:WaitForChild("RE/RegisterAttack"):FireServer(0)
+                end
+                
                 local args = {nil, {}}
                 for i, v in pairs(targets) do
                     if not args[1] then args[1] = v.Head end
@@ -181,6 +185,8 @@ task.spawn(function()
                 net:WaitForChild("RE/RegisterHit"):FireServer(unpack(args))
             end
         end)
+        -- Điều chỉnh tốc độ vòng lặp
+        if fastAttackActive then task.wait(0.01) else task.wait(0.1) end
     end
 end)
 
@@ -206,17 +212,4 @@ runService.Heartbeat:Connect(function(dt)
     if airWalkActive and airWalkPart then airWalkPart.Position = target.Position - Vector3.new(0, 3.5, 0) end
 end)
 
--- Reset kích thước
-lp.CharacterAdded:Connect(function()
-    originalSizes = {}
-    task.wait(1)
-    if giantActive then
-        local char = lp.Character
-        for _, v in pairs(char:GetDescendants()) do
-            if v:IsA("BasePart") then originalSizes[v] = v.Size; v.Size = v.Size * 3
-            elseif v:IsA("SpecialMesh") or v:IsA("Mesh") then originalSizes[v] = v.Scale; v.Scale = v.Scale * 3 end
-        end
-    end
-end)
-
-SendNotify("VŨ KHOA V31", "Đã tích hợp NaNa Aura & FastMax!", 5)
+SendNotify("VŨ KHOA V31", "Vũ Khoaa", 4)

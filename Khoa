@@ -1,4 +1,4 @@
--- [[ VŨ KHOA V31 PRO - LIQUID GLASS UI + MULTI-TOUCH ]]
+-- [[ VŨ KHOA V31 PRO - LIQUID GLASS UI + FLOATING FPS + FLOATING MOVE PAD ]]
 local lp = game:GetService("Players").LocalPlayer
 local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
@@ -16,7 +16,7 @@ end
 local localMoveDir = Vector3.new(0,0,0)
 local currentSpeed = 2 
 local ghimActive, xrayActive, ghostActive, airWalkActive, backPosActive = false, false, false, false, false
-local fastAttackActive, spinBotActive = false, false
+local fastAttackActive, spinBotActive, fpsActive = false, false, false
 local notifyEnabled = true
 local lockedPos, airWalkPart, ghostModel, backPosCoord = nil, nil, nil, nil
 local ASSET_ID = "rbxassetid://127697789661018"
@@ -29,7 +29,7 @@ local function SendNotify(title, text, duration)
     NotifyGui.Name = "VuKhoa_Notify_System"
     local Frame = Instance.new("Frame", NotifyGui)
     Frame.Size = UDim2.new(0, 220, 0, 65); Frame.Position = UDim2.new(1, 10, 1, -80); Frame.BorderSizePixel = 0
-    Frame.BackgroundColor3 = Color3.fromRGB(10, 10, 15); Frame.BackgroundTransparency = 0.4 -- Glass
+    Frame.BackgroundColor3 = Color3.fromRGB(10, 10, 15); Frame.BackgroundTransparency = 0.4 
     Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
     
     local Stroke = Instance.new("UIStroke", Frame); Stroke.Color = Color3.fromRGB(0, 150, 255); Stroke.Thickness = 1; Stroke.Transparency = 0.5
@@ -39,34 +39,7 @@ local function SendNotify(title, text, duration)
     task.delay(duration or 3, function() if Frame then Frame:Destroy() end end)
 end
 
--- 2. MAIN MENU (LIQUID GLASS SETUP)
-local ScreenGui = Instance.new("ScreenGui", coreGui); ScreenGui.Name = "TrVuKhoaa_Sync_UI"
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 210, 0, 440); MainFrame.Position = UDim2.new(0.5, -105, 0.4, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25) 
-MainFrame.BackgroundTransparency = 0.35 -- Độ mờ nền kính
-MainFrame.Active = true; MainFrame.ClipsDescendants = true; MainFrame.BorderSizePixel = 0
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
-
--- Viền kính sáng màu
-local MainStroke = Instance.new("UIStroke", MainFrame)
-MainStroke.Color = Color3.fromRGB(255, 255, 255)
-MainStroke.Transparency = 0.8
-MainStroke.Thickness = 1.2
-
--- Tạo hiệu ứng phản quang (Gradient bóng kính)
-local GlassGradient = Instance.new("UIGradient", MainFrame)
-GlassGradient.Rotation = 45
-GlassGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 50, 60))
-})
-GlassGradient.Transparency = NumberSequence.new({
-    NumberSequenceKeypoint.new(0, 0.6),
-    NumberSequenceKeypoint.new(0.4, 0.95),
-    NumberSequenceKeypoint.new(1, 0.8)
-})
-
+-- Hàm tạo chức năng kéo thả
 local function MakeDraggable(gui)
     local dragging, dragInput, dragStart, startPos
     gui.InputBegan:Connect(function(input)
@@ -84,21 +57,53 @@ local function MakeDraggable(gui)
     end)
 end
 
+-- 2. MAIN MENU (LIQUID GLASS SETUP)
+local ScreenGui = Instance.new("ScreenGui", coreGui); ScreenGui.Name = "TrVuKhoaa_Sync_UI"
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 210, 0, 440); MainFrame.Position = UDim2.new(0.5, -105, 0.4, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25) 
+MainFrame.BackgroundTransparency = 0.35 
+MainFrame.Active = true; MainFrame.ClipsDescendants = true; MainFrame.BorderSizePixel = 0
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Color = Color3.fromRGB(255, 255, 255)
+MainStroke.Transparency = 0.8
+MainStroke.Thickness = 1.2
+
+local GlassGradient = Instance.new("UIGradient", MainFrame)
+GlassGradient.Rotation = 45
+GlassGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 50, 60))
+})
+GlassGradient.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0, 0.6),
+    NumberSequenceKeypoint.new(0.4, 0.95),
+    NumberSequenceKeypoint.new(1, 0.8)
+})
+MakeDraggable(MainFrame)
+
 -- 3. TITLE BAR
 local TitleBar = Instance.new("Frame", MainFrame)
-TitleBar.Size = UDim2.new(1, 0, 0, 38); TitleBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0); TitleBar.BackgroundTransparency = 0.5; TitleBar.BorderSizePixel = 0 -- Làm mờ thanh tiêu đề
+TitleBar.Size = UDim2.new(1, 0, 0, 38); TitleBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0); TitleBar.BackgroundTransparency = 0.5; TitleBar.BorderSizePixel = 0
 local MiniBtn = Instance.new("TextButton", TitleBar); MiniBtn.Size = UDim2.new(0, 30, 0, 30); MiniBtn.Position = UDim2.new(0, 5, 0.5, -15); MiniBtn.Text = "▼"; MiniBtn.TextColor3 = Color3.fromRGB(0, 180, 255); MiniBtn.BackgroundTransparency = 1; MiniBtn.Font = Enum.Font.GothamBold; MiniBtn.TextSize = 16
 local TitleText = Instance.new("TextLabel", TitleBar); TitleText.Size = UDim2.new(1, -70, 1, 0); TitleText.Position = UDim2.new(0, 35, 0, 0); TitleText.Text = "VŨ KHOA V31 PRO"; TitleText.TextColor3 = Color3.new(1,1,1); TitleText.BackgroundTransparency = 1; TitleText.TextXAlignment = "Left"; TitleText.Font = Enum.Font.GothamBold; TitleText.TextSize = 12
 local CloseBtn = Instance.new("TextButton", TitleBar); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -35, 0.5, -15); CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 60, 60); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 18
 
--- 4. SCROLL CONTENT
-local Scroll = Instance.new("ScrollingFrame", MainFrame)
-Scroll.Size = UDim2.new(1, 0, 1, -40); Scroll.Position = UDim2.new(0, 0, 0, 40); Scroll.BackgroundTransparency = 1; Scroll.BorderSizePixel = 0; Scroll.ScrollBarThickness = 1; Scroll.ScrollBarImageColor3 = Color3.fromRGB(255,255,255); Scroll.ScrollBarImageTransparency = 0.8; Scroll.CanvasSize = UDim2.new(0, 0, 0, 850)
-local ListLayout = Instance.new("UIListLayout", Scroll); ListLayout.Padding = UDim.new(0, 7); ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+-- 4. FLOATING FPS PILL
+local FpsPill = Instance.new("Frame", ScreenGui)
+FpsPill.Size = UDim2.new(0, 80, 0, 32); FpsPill.Position = UDim2.new(0.5, -40, 0, 20)
+FpsPill.BackgroundColor3 = Color3.fromRGB(15, 15, 25); FpsPill.BackgroundTransparency = 0.35; FpsPill.BorderSizePixel = 0; FpsPill.Visible = false
+Instance.new("UICorner", FpsPill).CornerRadius = UDim.new(1, 0) 
+local FpsStroke = Instance.new("UIStroke", FpsPill); FpsStroke.Color = Color3.fromRGB(255, 255, 255); FpsStroke.Transparency = 0.8; FpsStroke.Thickness = 1.2
+local FpsLabel = Instance.new("TextLabel", FpsPill); FpsLabel.Size = UDim2.new(1, 0, 1, 0); FpsLabel.BackgroundTransparency = 1; FpsLabel.Text = "FPS: 0"; FpsLabel.Font = Enum.Font.GothamBold; FpsLabel.TextColor3 = Color3.fromRGB(0, 180, 255); FpsLabel.TextSize = 13
+MakeDraggable(FpsPill)
 
+-- 5. NÚT CHUNG
 local function CreateBtn(parent, text, callback, defaultActive)
     local Btn = Instance.new("TextButton", parent)
-    Btn.Size = UDim2.new(0.92, 0, 0, 32); Btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0); Btn.BackgroundTransparency = 0.6; Btn.Text = "" -- Phối hợp kính
+    Btn.Size = UDim2.new(0.92, 0, 0, 32); Btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0); Btn.BackgroundTransparency = 0.6; Btn.Text = "" 
     Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
     local BtnStroke = Instance.new("UIStroke", Btn); BtnStroke.Color = Color3.fromRGB(255,255,255); BtnStroke.Transparency = 0.9; BtnStroke.Thickness = 0.8
     
@@ -115,6 +120,51 @@ local function CreateBtn(parent, text, callback, defaultActive)
         callback(active) 
     end)
 end
+
+-- 6. FLOATING MOVE PAD (BẢNG DI CHUYỂN NỔI)
+local MovePad = Instance.new("Frame", ScreenGui)
+MovePad.Size = UDim2.new(0, 170, 0, 130)
+MovePad.Position = UDim2.new(0.7, 0, 0.6, 0)
+MovePad.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+MovePad.BackgroundTransparency = 0.35
+MovePad.BorderSizePixel = 0
+MovePad.Visible = false
+MovePad.Active = true
+Instance.new("UICorner", MovePad).CornerRadius = UDim.new(0, 10)
+local MPStroke = Instance.new("UIStroke", MovePad)
+MPStroke.Color = Color3.fromRGB(255, 255, 255)
+MPStroke.Transparency = 0.8
+MPStroke.Thickness = 1.2
+MakeDraggable(MovePad)
+
+local MPTitle = Instance.new("TextLabel", MovePad)
+MPTitle.Size = UDim2.new(1, 0, 0, 20)
+MPTitle.Position = UDim2.new(0, 0, 0, 2)
+MPTitle.BackgroundTransparency = 1
+MPTitle.Text = "DI CHUYỂN TỰ DO"
+MPTitle.TextColor3 = Color3.fromRGB(0, 180, 255)
+MPTitle.Font = Enum.Font.GothamBold
+MPTitle.TextSize = 11
+
+local PadGrid = Instance.new("Frame", MovePad)
+PadGrid.Size = UDim2.new(1, -10, 1, -25)
+PadGrid.Position = UDim2.new(0, 5, 0, 22)
+PadGrid.BackgroundTransparency = 1
+local PGL = Instance.new("UIGridLayout", PadGrid)
+PGL.CellSize = UDim2.new(0.48, 0, 0, 30)
+PGL.CellPadding = UDim2.new(0.03, 0, 0, 4)
+
+local moves = {{"Tiến",Vector3.new(0,0,-1)},{"Lùi",Vector3.new(0,0,1)},{"Trái",Vector3.new(-1,0,0)},{"Phải",Vector3.new(1,0,0)},{"Lên",Vector3.new(0,1,0)},{"Xuống",Vector3.new(0,-1,0)}}
+for _, v in pairs(moves) do 
+    CreateBtn(PadGrid, v[1], function(s) 
+        if s then localMoveDir += v[2] else localMoveDir -= v[2] end 
+    end) 
+end
+
+-- 7. SCROLL CONTENT (MAIN MENU)
+local Scroll = Instance.new("ScrollingFrame", MainFrame)
+Scroll.Size = UDim2.new(1, 0, 1, -40); Scroll.Position = UDim2.new(0, 0, 0, 40); Scroll.BackgroundTransparency = 1; Scroll.BorderSizePixel = 0; Scroll.ScrollBarThickness = 1; Scroll.ScrollBarImageColor3 = Color3.fromRGB(255,255,255); Scroll.ScrollBarImageTransparency = 0.8; Scroll.CanvasSize = UDim2.new(0, 0, 0, 850)
+local ListLayout = Instance.new("UIListLayout", Scroll); ListLayout.Padding = UDim.new(0, 7); ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local function CreateInput(parent, title, placeholder, callback)
     local Frame = Instance.new("Frame", parent)
@@ -148,13 +198,16 @@ CreateInput(Scroll, "Tốc độ (Speed)", tostring(currentSpeed), function(val)
     end
 end)
 
--- Grid Di chuyển
-local Grid = Instance.new("Frame", Scroll); Grid.Size = UDim2.new(0.9, 0, 0, 100); Grid.BackgroundTransparency = 1
-Instance.new("UIGridLayout", Grid).CellSize = UDim2.new(0.48, 0, 0, 30); Grid.UIGridLayout.CellPadding = UDim2.new(0.04, 0, 0, 5)
-local moves = {{"Tiến",Vector3.new(0,0,-1)},{"Lùi",Vector3.new(0,0,1)},{"Trái",Vector3.new(-1,0,0)},{"Phải",Vector3.new(1,0,0)},{"Lên",Vector3.new(0,1,0)},{"Xuống",Vector3.new(0,-1,0)}}
-for _, v in pairs(moves) do CreateBtn(Grid, v[1], function(s) if s then localMoveDir += v[2] else localMoveDir -= v[2] end end) end
-
 --- [[ TÍNH NĂNG CHÍNH ]] ---
+CreateBtn(Scroll, "Bảng Di Chuyển (Nổi)", function(s) 
+    MovePad.Visible = s 
+end)
+
+CreateBtn(Scroll, "Hiển Thị FPS", function(s) 
+    fpsActive = s 
+    FpsPill.Visible = s 
+end)
+
 CreateBtn(Scroll, "Fast Attack (Tốc độ)", function(s) 
     fastAttackActive = s 
     if s then pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/AnhDzaiScript/Setting/refs/heads/main/FastMax.lua"))() end) end
@@ -182,7 +235,8 @@ CreateBtn(Scroll, "Air Walk", function(s) airWalkActive = s if s then airWalkPar
 -- LOGIC ĐÓNG MỞ (NÚT BẤM & 3/4 NGÓN TAY)
 local OpenBtn = Instance.new("ImageButton", ScreenGui); OpenBtn.Size = UDim2.new(0, 55, 0, 55); OpenBtn.Position = UDim2.new(1, -65, 0.5, -27); OpenBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15); OpenBtn.BackgroundTransparency = 0.3; OpenBtn.Image = ASSET_ID; OpenBtn.Visible = false; OpenBtn.Active = true; Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
 local FloatStroke = Instance.new("UIStroke", OpenBtn); FloatStroke.Color = Color3.fromRGB(255,255,255); FloatStroke.Transparency = 0.8; FloatStroke.Thickness = 1.2
-MakeDraggable(MainFrame); MakeDraggable(OpenBtn)
+MakeDraggable(OpenBtn)
+
 MiniBtn.MouseButton1Click:Connect(function() MainFrame:TweenSize(MainFrame.Size.Y.Offset == 440 and UDim2.new(0, 210, 0, 38) or UDim2.new(0, 210, 0, 440), "Out", "Quart", 0.3, true); MiniBtn.Text = MainFrame.Size.Y.Offset == 440 and "▶" or "▼" end)
 
 local function ToggleMenu()
@@ -249,6 +303,22 @@ task.spawn(function()
     end
 end)
 
+-- Logic Đếm FPS
+local lastTick = os.clock()
+local frameCount = 0
+
+runService.RenderStepped:Connect(function()
+    if fpsActive then
+        frameCount = frameCount + 1
+        local currentTick = os.clock()
+        if currentTick - lastTick >= 1 then
+            FpsLabel.Text = "FPS: " .. frameCount
+            frameCount = 0
+            lastTick = currentTick
+        end
+    end
+end)
+
 -- Heartbeat Logic (Di chuyển, Spin & ESP)
 runService.Heartbeat:Connect(function(dt)
     local char = lp.Character; if not char or not char:FindFirstChild("HumanoidRootPart") then return end
@@ -276,4 +346,4 @@ runService.Heartbeat:Connect(function(dt)
     if airWalkActive and airWalkPart then airWalkPart.Position = target.Position - Vector3.new(0, 3.5, 0) end
 end)
 
-SendNotify("VŨ KHOA V31", "Giao diện Liquid Glass đã sẵn sàng!", 5)
+SendNotify("VŨ KHOA V31", "Cập nhật hoàn tất: Floating Move Pad sẵn sàng!", 5)

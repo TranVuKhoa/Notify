@@ -1,13 +1,14 @@
--- [[ VŨ KHOA V31 PRO - LIQUID GLASS UI + FLOATING FPS + FLOATING MOVE PAD ]]
+-- [[ VŨ KHOA V31 PRO - IOS GLASS + TABS + ESP + BUG FIX CLICK THUYỀN ]]
 local lp = game:GetService("Players").LocalPlayer
 local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
 local coreGui = game:GetService("CoreGui")
 local rs = game:GetService("ReplicatedStorage")
+local cam = workspace.CurrentCamera
 
 -- Xóa UI cũ
 for _, old in pairs(coreGui:GetChildren()) do
-    if old.Name == "TrVuKhoaa_Sync_UI" or old.Name == "VuKhoa_Notify_System" then
+    if old.Name == "TrVuKhoaa_Sync_UI" or old.Name == "VuKhoa_Notify_System" or old.Name == "VuKhoa_ESP_Layer" then
         old:Destroy()
     end
 end
@@ -15,31 +16,80 @@ end
 -- Biến logic UI
 local localMoveDir = Vector3.new(0,0,0)
 local currentSpeed = 2 
-local ghimActive, xrayActive, ghostActive, airWalkActive, backPosActive = false, false, false, false, false
-local fastAttackActive, spinBotActive, fpsActive = false, false, false
+local ghimActive, xrayActive, ghostActive, flyXrayActive, backPosActive = false, false, false, false, false
+local spinBotActive, fpsActive, tapWallActive = false, false, false
+local espLineActive, espBoxActive, espCountActive = false, false, false
 local notifyEnabled = true
-local lockedPos, airWalkPart, ghostModel, backPosCoord = nil, nil, nil, nil
+local lockedPos, ghostModel, backPosCoord = nil, nil, nil
 local ASSET_ID = "rbxassetid://127697789661018"
+local IOS_BLUE = Color3.fromRGB(10, 132, 255)
+
+-- Layer riêng để vẽ ESP
+local ESPLayer = Instance.new("ScreenGui", coreGui)
+ESPLayer.Name = "VuKhoa_ESP_Layer"
+ESPLayer.IgnoreGuiInset = true 
+local espCache = {}
+
+-- Hàm xử lý Fly X-Ray dùng chung
+local function ToggleFlyXRay(state)
+    flyXrayActive = state 
+    local char = lp.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local root = char.HumanoidRootPart
+        if state then
+            local bv = root:FindFirstChild("VuKhoa_Fly") or Instance.new("BodyVelocity")
+            bv.Name = "VuKhoa_Fly"
+            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bv.Velocity = Vector3.zero
+            bv.Parent = root
+        else
+            local bv = root:FindFirstChild("VuKhoa_Fly")
+            if bv then bv:Destroy() end
+            for _, v in pairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then v.CanCollide = true end
+            end
+        end
+    end
+end
+
+-- Hàm tạo hiệu ứng ánh sáng viền kính iOS
+local function ApplyIOSGlassEdge(parent)
+    local stroke = Instance.new("UIStroke", parent)
+    stroke.Thickness = 1.2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    local gradient = Instance.new("UIGradient", stroke)
+    gradient.Rotation = 45
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 120, 130)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
+    })
+    gradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.2),
+        NumberSequenceKeypoint.new(0.5, 0.8),
+        NumberSequenceKeypoint.new(1, 0.2)
+    })
+    return stroke
+end
 
 -- [[================== GIAO DIỆN CHÍNH ==================]]
--- 1. NOTIFY SYSTEM (Liquid Glass Style)
+-- 1. NOTIFY SYSTEM
 local function SendNotify(title, text, duration)
     if not notifyEnabled then return end
     local NotifyGui = coreGui:FindFirstChild("VuKhoa_Notify_System") or Instance.new("ScreenGui", coreGui)
     NotifyGui.Name = "VuKhoa_Notify_System"
     local Frame = Instance.new("Frame", NotifyGui)
-    Frame.Size = UDim2.new(0, 220, 0, 65); Frame.Position = UDim2.new(1, 10, 1, -80); Frame.BorderSizePixel = 0
-    Frame.BackgroundColor3 = Color3.fromRGB(10, 10, 15); Frame.BackgroundTransparency = 0.4 
-    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
+    Frame.Size = UDim2.new(0, 240, 0, 70); Frame.Position = UDim2.new(1, 10, 1, -85); Frame.BorderSizePixel = 0
+    Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30); Frame.BackgroundTransparency = 0.35
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 16)
+    ApplyIOSGlassEdge(Frame)
     
-    local Stroke = Instance.new("UIStroke", Frame); Stroke.Color = Color3.fromRGB(0, 150, 255); Stroke.Thickness = 1; Stroke.Transparency = 0.5
-    local Tl = Instance.new("TextLabel", Frame); Tl.Text = "  "..title; Tl.Size = UDim2.new(1,0,0,25); Tl.BackgroundTransparency = 1; Tl.TextColor3 = Color3.fromRGB(0, 180, 255); Tl.Font = Enum.Font.GothamBold; Tl.TextSize = 14; Tl.TextXAlignment = "Left"
-    local Tx = Instance.new("TextLabel", Frame); Tx.Text = "  "..text; Tx.Size = UDim2.new(1,0,1,-25); Tx.Position = UDim2.new(0,0,0,25); Tx.BackgroundTransparency = 1; Tx.TextColor3 = Color3.new(1,1,1); Tx.Font = Enum.Font.Gotham; Tx.TextSize = 13; Tx.TextXAlignment = "Left"; Tx.TextWrapped = true
-    Frame:TweenPosition(UDim2.new(1, -230, 1, -80), "Out", "Quart", 0.5, true)
-    task.delay(duration or 3, function() if Frame then Frame:Destroy() end end)
+    local Tl = Instance.new("TextLabel", Frame); Tl.Text = "  "..title; Tl.Size = UDim2.new(1,0,0,28); Tl.BackgroundTransparency = 1; Tl.TextColor3 = IOS_BLUE; Tl.Font = Enum.Font.GothamMedium; Tl.TextSize = 14; Tl.TextXAlignment = "Left"
+    local Tx = Instance.new("TextLabel", Frame); Tx.Text = "  "..text; Tx.Size = UDim2.new(1,0,1,-28); Tx.Position = UDim2.new(0,0,0,28); Tx.BackgroundTransparency = 1; Tx.TextColor3 = Color3.fromRGB(240, 240, 245); Tx.Font = Enum.Font.Gotham; Tx.TextSize = 13; Tx.TextXAlignment = "Left"; Tx.TextWrapped = true
+    Frame:TweenPosition(UDim2.new(1, -250, 1, -85), "Out", "Quart", 0.6, true)
+    task.delay(duration or 3.5, function() if Frame then Frame:Destroy() end end)
 end
 
--- Hàm tạo chức năng kéo thả
 local function MakeDraggable(gui)
     local dragging, dragInput, dragStart, startPos
     gui.InputBegan:Connect(function(input)
@@ -57,102 +107,109 @@ local function MakeDraggable(gui)
     end)
 end
 
--- 2. MAIN MENU (LIQUID GLASS SETUP)
+-- 2. MAIN MENU
 local ScreenGui = Instance.new("ScreenGui", coreGui); ScreenGui.Name = "TrVuKhoaa_Sync_UI"
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 210, 0, 440); MainFrame.Position = UDim2.new(0.5, -105, 0.4, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25) 
-MainFrame.BackgroundTransparency = 0.35 
+MainFrame.Size = UDim2.new(0, 220, 0, 460); MainFrame.Position = UDim2.new(0.5, -110, 0.4, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MainFrame.BackgroundTransparency = 0.35 
 MainFrame.Active = true; MainFrame.ClipsDescendants = true; MainFrame.BorderSizePixel = 0
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
-
-local MainStroke = Instance.new("UIStroke", MainFrame)
-MainStroke.Color = Color3.fromRGB(255, 255, 255)
-MainStroke.Transparency = 0.8
-MainStroke.Thickness = 1.2
-
-local GlassGradient = Instance.new("UIGradient", MainFrame)
-GlassGradient.Rotation = 45
-GlassGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 50, 60))
-})
-GlassGradient.Transparency = NumberSequence.new({
-    NumberSequenceKeypoint.new(0, 0.6),
-    NumberSequenceKeypoint.new(0.4, 0.95),
-    NumberSequenceKeypoint.new(1, 0.8)
-})
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 18)
+ApplyIOSGlassEdge(MainFrame)
 MakeDraggable(MainFrame)
 
 -- 3. TITLE BAR
 local TitleBar = Instance.new("Frame", MainFrame)
-TitleBar.Size = UDim2.new(1, 0, 0, 38); TitleBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0); TitleBar.BackgroundTransparency = 0.5; TitleBar.BorderSizePixel = 0
-local MiniBtn = Instance.new("TextButton", TitleBar); MiniBtn.Size = UDim2.new(0, 30, 0, 30); MiniBtn.Position = UDim2.new(0, 5, 0.5, -15); MiniBtn.Text = "▼"; MiniBtn.TextColor3 = Color3.fromRGB(0, 180, 255); MiniBtn.BackgroundTransparency = 1; MiniBtn.Font = Enum.Font.GothamBold; MiniBtn.TextSize = 16
-local TitleText = Instance.new("TextLabel", TitleBar); TitleText.Size = UDim2.new(1, -70, 1, 0); TitleText.Position = UDim2.new(0, 35, 0, 0); TitleText.Text = "VŨ KHOA V31 PRO"; TitleText.TextColor3 = Color3.new(1,1,1); TitleText.BackgroundTransparency = 1; TitleText.TextXAlignment = "Left"; TitleText.Font = Enum.Font.GothamBold; TitleText.TextSize = 12
-local CloseBtn = Instance.new("TextButton", TitleBar); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -35, 0.5, -15); CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 60, 60); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 18
+TitleBar.Size = UDim2.new(1, 0, 0, 40); TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 20); TitleBar.BackgroundTransparency = 1; TitleBar.BorderSizePixel = 0
+local MiniBtn = Instance.new("TextButton", TitleBar); MiniBtn.Size = UDim2.new(0, 30, 0, 30); MiniBtn.Position = UDim2.new(0, 5, 0.5, -15); MiniBtn.Text = "▼"; MiniBtn.TextColor3 = IOS_BLUE; MiniBtn.BackgroundTransparency = 1; MiniBtn.Font = Enum.Font.GothamMedium; MiniBtn.TextSize = 16
+local TitleText = Instance.new("TextLabel", TitleBar); TitleText.Size = UDim2.new(1, -70, 1, 0); TitleText.Position = UDim2.new(0, 35, 0, 0); TitleText.Text = "VŨ KHOA V31 PRO"; TitleText.TextColor3 = Color3.fromRGB(255, 255, 255); TitleText.BackgroundTransparency = 1; TitleText.TextXAlignment = "Left"; TitleText.Font = Enum.Font.GothamMedium; TitleText.TextSize = 12
+local CloseBtn = Instance.new("TextButton", TitleBar); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -35, 0.5, -15); CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamMedium; CloseBtn.TextSize = 17
 
--- 4. FLOATING FPS PILL
-local FpsPill = Instance.new("Frame", ScreenGui)
-FpsPill.Size = UDim2.new(0, 80, 0, 32); FpsPill.Position = UDim2.new(0.5, -40, 0, 20)
-FpsPill.BackgroundColor3 = Color3.fromRGB(15, 15, 25); FpsPill.BackgroundTransparency = 0.35; FpsPill.BorderSizePixel = 0; FpsPill.Visible = false
-Instance.new("UICorner", FpsPill).CornerRadius = UDim.new(1, 0) 
-local FpsStroke = Instance.new("UIStroke", FpsPill); FpsStroke.Color = Color3.fromRGB(255, 255, 255); FpsStroke.Transparency = 0.8; FpsStroke.Thickness = 1.2
-local FpsLabel = Instance.new("TextLabel", FpsPill); FpsLabel.Size = UDim2.new(1, 0, 1, 0); FpsLabel.BackgroundTransparency = 1; FpsLabel.Text = "FPS: 0"; FpsLabel.Font = Enum.Font.GothamBold; FpsLabel.TextColor3 = Color3.fromRGB(0, 180, 255); FpsLabel.TextSize = 13
-MakeDraggable(FpsPill)
+-- 4. TAB BAR
+local TabBar = Instance.new("Frame", MainFrame)
+TabBar.Size = UDim2.new(1, 0, 0, 35); TabBar.Position = UDim2.new(0, 0, 0, 40); TabBar.BackgroundTransparency = 1
+local TabMainBtn = Instance.new("TextButton", TabBar); TabMainBtn.Size = UDim2.new(0.5, 0, 1, 0); TabMainBtn.BackgroundTransparency = 1; TabMainBtn.Text = "CHÍNH"; TabMainBtn.Font = Enum.Font.GothamBold; TabMainBtn.TextColor3 = IOS_BLUE; TabMainBtn.TextSize = 12
+local TabESPBtn = Instance.new("TextButton", TabBar); TabESPBtn.Size = UDim2.new(0.5, 0, 1, 0); TabESPBtn.Position = UDim2.new(0.5, 0, 0, 0); TabESPBtn.BackgroundTransparency = 1; TabESPBtn.Text = "ESP"; TabESPBtn.Font = Enum.Font.GothamBold; TabESPBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabESPBtn.TextSize = 12
+local TabIndicator = Instance.new("Frame", TabBar); TabIndicator.Size = UDim2.new(0.3, 0, 0, 2); TabIndicator.Position = UDim2.new(0.1, 0, 1, -2); TabIndicator.BackgroundColor3 = IOS_BLUE; TabIndicator.BorderSizePixel = 0; Instance.new("UICorner", TabIndicator).CornerRadius = UDim.new(1,0)
 
--- 5. NÚT CHUNG
+-- 5. FLOATING PILLS
+local function CreateFloatingPill(xOffset, defaultText)
+    local Pill = Instance.new("Frame", ScreenGui)
+    Pill.Size = UDim2.new(0, 90, 0, 36); Pill.Position = UDim2.new(0.5, xOffset, 0, 20)
+    Pill.BackgroundColor3 = Color3.fromRGB(25, 25, 32); Pill.BackgroundTransparency = 0.35; Pill.BorderSizePixel = 0; Pill.Visible = false
+    Instance.new("UICorner", Pill).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(Pill)
+    local Label = Instance.new("TextLabel", Pill); Label.Size = UDim2.new(1, 0, 1, 0); Label.BackgroundTransparency = 1; Label.Text = defaultText; Label.Font = Enum.Font.GothamMedium; Label.TextColor3 = IOS_BLUE; Label.TextSize = 13
+    MakeDraggable(Pill)
+    return Pill, Label
+end
+local FpsPill, FpsLabel = CreateFloatingPill(-100, "FPS: 0")
+local CountPill, CountLabel = CreateFloatingPill(10, "Địch: 0")
+
+-- 6. TẠO SCROLL & NÚT CHUNG
+local ScrollMain = Instance.new("ScrollingFrame", MainFrame)
+ScrollMain.Size = UDim2.new(1, 0, 1, -80); ScrollMain.Position = UDim2.new(0, 0, 0, 80); ScrollMain.BackgroundTransparency = 1; ScrollMain.BorderSizePixel = 0; ScrollMain.ScrollBarThickness = 1.5; ScrollMain.ScrollBarImageColor3 = Color3.fromRGB(200,200,200); ScrollMain.ScrollBarImageTransparency = 0.6; ScrollMain.CanvasSize = UDim2.new(0, 0, 0, 450)
+local ListMain = Instance.new("UIListLayout", ScrollMain); ListMain.Padding = UDim.new(0, 8); ListMain.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local ScrollESP = Instance.new("ScrollingFrame", MainFrame)
+ScrollESP.Size = UDim2.new(1, 0, 1, -80); ScrollESP.Position = UDim2.new(0, 0, 0, 80); ScrollESP.BackgroundTransparency = 1; ScrollESP.BorderSizePixel = 0; ScrollESP.ScrollBarThickness = 1.5; ScrollESP.ScrollBarImageColor3 = Color3.fromRGB(200,200,200); ScrollESP.ScrollBarImageTransparency = 0.6; ScrollESP.CanvasSize = UDim2.new(0, 0, 0, 300); ScrollESP.Visible = false
+local ListESP = Instance.new("UIListLayout", ScrollESP); ListESP.Padding = UDim.new(0, 8); ListESP.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+TabMainBtn.MouseButton1Click:Connect(function() ScrollMain.Visible = true; ScrollESP.Visible = false; TabMainBtn.TextColor3 = IOS_BLUE; TabESPBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabIndicator:TweenPosition(UDim2.new(0.1, 0, 1, -2), "Out", "Quad", 0.2, true) end)
+TabESPBtn.MouseButton1Click:Connect(function() ScrollMain.Visible = false; ScrollESP.Visible = true; TabESPBtn.TextColor3 = IOS_BLUE; TabMainBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabIndicator:TweenPosition(UDim2.new(0.6, 0, 1, -2), "Out", "Quad", 0.2, true) end)
+
 local function CreateBtn(parent, text, callback, defaultActive)
     local Btn = Instance.new("TextButton", parent)
-    Btn.Size = UDim2.new(0.92, 0, 0, 32); Btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0); Btn.BackgroundTransparency = 0.6; Btn.Text = "" 
-    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
-    local BtnStroke = Instance.new("UIStroke", Btn); BtnStroke.Color = Color3.fromRGB(255,255,255); BtnStroke.Transparency = 0.9; BtnStroke.Thickness = 0.8
-    
-    local Square = Instance.new("Frame", Btn); Square.Size = UDim2.new(0, 14, 0, 14); Square.Position = UDim2.new(0, 8, 0.5, -7); Square.BackgroundColor3 = defaultActive and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(30, 30, 30); Square.BorderSizePixel = 0; Square.BackgroundTransparency = defaultActive and 0.2 or 0.5
-    Instance.new("UICorner", Square).CornerRadius = UDim.new(0, 4)
-    local Label = Instance.new("TextLabel", Btn); Label.Size = UDim2.new(1, -35, 1, 0); Label.Position = UDim2.new(0, 30, 0, 0); Label.BackgroundTransparency = 1; Label.Text = text; Label.Font = Enum.Font.Gotham; Label.TextColor3 = Color3.fromRGB(230, 230, 230); Label.TextSize = 12; Label.TextXAlignment = "Left"
-    
+    Btn.Size = UDim2.new(0.92, 0, 0, 34); Btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Btn.BackgroundTransparency = 0.92; Btn.Text = "" 
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 10)
+    local Square = Instance.new("Frame", Btn); Square.Size = UDim2.new(0, 16, 0, 16); Square.Position = UDim2.new(0, 10, 0.5, -8); Square.BackgroundColor3 = defaultActive and IOS_BLUE or Color3.fromRGB(80, 80, 85); Square.BorderSizePixel = 0; Square.BackgroundTransparency = defaultActive and 0.1 or 0.6
+    Instance.new("UICorner", Square).CornerRadius = UDim.new(1, 0)
+    local Label = Instance.new("TextLabel", Btn); Label.Size = UDim2.new(1, -40, 1, 0); Label.Position = UDim2.new(0, 35, 0, 0); Label.BackgroundTransparency = 1; Label.Text = text; Label.Font = Enum.Font.Gotham; Label.TextColor3 = Color3.fromRGB(240, 240, 245); Label.TextSize = 12; Label.TextXAlignment = "Left"
     local active = defaultActive or false
     Btn.MouseButton1Click:Connect(function() 
-        active = not active
-        Square.BackgroundColor3 = active and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(30, 30, 30)
-        Square.BackgroundTransparency = active and 0.2 or 0.5
-        SendNotify(text, active and "Đã Bật" or "Đã Tắt", 1.5)
+        active = not active; Square.BackgroundColor3 = active and IOS_BLUE or Color3.fromRGB(80, 80, 85); Square.BackgroundTransparency = active and 0.1 or 0.6
+        SendNotify("Tính Năng", text .. (active and " đã bật" or " đã tắt"), 1.5)
         callback(active) 
     end)
 end
 
--- 6. FLOATING MOVE PAD (BẢNG DI CHUYỂN NỔI)
+local function CreateInput(parent, title, placeholder, callback)
+    local Frame = Instance.new("Frame", parent)
+    Frame.Size = UDim2.new(0.92, 0, 0, 34); Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Frame.BackgroundTransparency = 0.92
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 10)
+    local Label = Instance.new("TextLabel", Frame); Label.Size = UDim2.new(0.4, 0, 1, 0); Label.Position = UDim2.new(0, 10, 0, 0); Label.BackgroundTransparency = 1; Label.Text = title; Label.Font = Enum.Font.Gotham; Label.TextColor3 = Color3.fromRGB(240, 240, 245); Label.TextSize = 12; Label.TextXAlignment = "Left"
+    local TextBox = Instance.new("TextBox", Frame); TextBox.Size = UDim2.new(0.5, 0, 0.75, 0); TextBox.Position = UDim2.new(0.45, 0, 0.125, 0); TextBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0); TextBox.BackgroundTransparency = 0.6; TextBox.Text = placeholder; TextBox.Font = Enum.Font.Gotham; TextBox.TextColor3 = Color3.new(1,1,1); TextBox.TextSize = 12; TextBox.ClearTextOnFocus = false
+    Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0, 6)
+    TextBox.FocusLost:Connect(function() callback(TextBox.Text) end)
+end
+
+-- 7. FLOATING MOVE PAD (ĐIỀU HƯỚNG TÍCH HỢP FLY X-RAY + THU GỌN CHỐNG CLICK NHẦM)
 local MovePad = Instance.new("Frame", ScreenGui)
-MovePad.Size = UDim2.new(0, 170, 0, 130)
-MovePad.Position = UDim2.new(0.7, 0, 0.6, 0)
-MovePad.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
-MovePad.BackgroundTransparency = 0.35
-MovePad.BorderSizePixel = 0
-MovePad.Visible = false
-MovePad.Active = true
-Instance.new("UICorner", MovePad).CornerRadius = UDim.new(0, 10)
-local MPStroke = Instance.new("UIStroke", MovePad)
-MPStroke.Color = Color3.fromRGB(255, 255, 255)
-MPStroke.Transparency = 0.8
-MPStroke.Thickness = 1.2
-MakeDraggable(MovePad)
+MovePad.Size = UDim2.new(0, 190, 0, 180); MovePad.Position = UDim2.new(0.7, 0, 0.6, 0); MovePad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MovePad.BackgroundTransparency = 0.35; MovePad.BorderSizePixel = 0; MovePad.Visible = false; MovePad.Active = true
+MovePad.ClipsDescendants = true 
+Instance.new("UICorner", MovePad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(MovePad); MakeDraggable(MovePad)
 
-local MPTitle = Instance.new("TextLabel", MovePad)
-MPTitle.Size = UDim2.new(1, 0, 0, 20)
-MPTitle.Position = UDim2.new(0, 0, 0, 2)
-MPTitle.BackgroundTransparency = 1
-MPTitle.Text = "DI CHUYỂN TỰ DO"
-MPTitle.TextColor3 = Color3.fromRGB(0, 180, 255)
-MPTitle.Font = Enum.Font.GothamBold
-MPTitle.TextSize = 11
+local MPTitle = Instance.new("TextLabel", MovePad); MPTitle.Size = UDim2.new(1, -30, 0, 28); MPTitle.Position = UDim2.new(0, 12, 0, 0); MPTitle.BackgroundTransparency = 1; MPTitle.Text = "JOYSTICK MỞ RỘNG"; MPTitle.TextColor3 = Color3.fromRGB(180, 180, 190); MPTitle.Font = Enum.Font.GothamMedium; MPTitle.TextSize = 10; MPTitle.TextXAlignment = "Left"
 
-local PadGrid = Instance.new("Frame", MovePad)
-PadGrid.Size = UDim2.new(1, -10, 1, -25)
-PadGrid.Position = UDim2.new(0, 5, 0, 22)
-PadGrid.BackgroundTransparency = 1
-local PGL = Instance.new("UIGridLayout", PadGrid)
-PGL.CellSize = UDim2.new(0.48, 0, 0, 30)
-PGL.CellPadding = UDim2.new(0.03, 0, 0, 4)
+-- Danh sách nút điều hướng của bảng nổi
+local PadGrid = Instance.new("Frame", MovePad); PadGrid.Size = UDim2.new(1, -12, 1, -34); PadGrid.Position = UDim2.new(0, 6, 0, 28); PadGrid.BackgroundTransparency = 1
+local PGL = Instance.new("UIGridLayout", PadGrid); PGL.CellSize = UDim2.new(0.48, 0, 0, 32); PGL.CellPadding = UDim2.new(0.04, 0, 0, 6)
+
+-- Nút thu nhỏ bảng điều hướng nổi
+local MPMiniBtn = Instance.new("TextButton", MovePad)
+MPMiniBtn.Size = UDim2.new(0, 28, 0, 28); MPMiniBtn.Position = UDim2.new(1, -28, 0, 0)
+MPMiniBtn.BackgroundTransparency = 1; MPMiniBtn.Text = "▼"; MPMiniBtn.TextColor3 = IOS_BLUE; MPMiniBtn.Font = Enum.Font.GothamMedium; MPMiniBtn.TextSize = 13
+
+MPMiniBtn.MouseButton1Click:Connect(function()
+    local isExpanded = MovePad.Size.Y.Offset == 180
+    if isExpanded then
+        PadGrid.Visible = false -- FIX BUG: Ẩn ngay lập tức khung nút để triệt tiêu vùng chạm thừa
+        MovePad:TweenSize(UDim2.new(0, 190, 0, 28), "Out", "Quart", 0.3, true)
+        MPMiniBtn.Text = "▶"
+    else
+        PadGrid.Visible = true -- Mở lại khi bấm mở rộng
+        MovePad:TweenSize(UDim2.new(0, 190, 0, 180), "Out", "Quart", 0.3, true)
+        MPMiniBtn.Text = "▼"
+    end
+end)
 
 local moves = {{"Tiến",Vector3.new(0,0,-1)},{"Lùi",Vector3.new(0,0,1)},{"Trái",Vector3.new(-1,0,0)},{"Phải",Vector3.new(1,0,0)},{"Lên",Vector3.new(0,1,0)},{"Xuống",Vector3.new(0,-1,0)}}
 for _, v in pairs(moves) do 
@@ -160,62 +217,14 @@ for _, v in pairs(moves) do
         if s then localMoveDir += v[2] else localMoveDir -= v[2] end 
     end) 
 end
+CreateBtn(PadGrid, "Tap Wall", function(s) tapWallActive = s end) 
 
--- 7. SCROLL CONTENT (MAIN MENU)
-local Scroll = Instance.new("ScrollingFrame", MainFrame)
-Scroll.Size = UDim2.new(1, 0, 1, -40); Scroll.Position = UDim2.new(0, 0, 0, 40); Scroll.BackgroundTransparency = 1; Scroll.BorderSizePixel = 0; Scroll.ScrollBarThickness = 1; Scroll.ScrollBarImageColor3 = Color3.fromRGB(255,255,255); Scroll.ScrollBarImageTransparency = 0.8; Scroll.CanvasSize = UDim2.new(0, 0, 0, 850)
-local ListLayout = Instance.new("UIListLayout", Scroll); ListLayout.Padding = UDim.new(0, 7); ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
-local function CreateInput(parent, title, placeholder, callback)
-    local Frame = Instance.new("Frame", parent)
-    Frame.Size = UDim2.new(0.92, 0, 0, 32)
-    Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0); Frame.BackgroundTransparency = 0.6
-    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
-    local FStroke = Instance.new("UIStroke", Frame); FStroke.Color = Color3.fromRGB(255,255,255); FStroke.Transparency = 0.9; FStroke.Thickness = 0.8
-
-    local Label = Instance.new("TextLabel", Frame)
-    Label.Size = UDim2.new(0.4, 0, 1, 0); Label.Position = UDim2.new(0, 10, 0, 0); Label.BackgroundTransparency = 1; Label.Text = title; Label.Font = Enum.Font.Gotham; Label.TextColor3 = Color3.fromRGB(230, 230, 230); Label.TextSize = 12; Label.TextXAlignment = "Left"
-
-    local TextBox = Instance.new("TextBox", Frame)
-    TextBox.Size = UDim2.new(0.5, 0, 0.8, 0); TextBox.Position = UDim2.new(0.45, 0, 0.1, 0)
-    TextBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20); TextBox.BackgroundTransparency = 0.5
-    TextBox.Text = placeholder; TextBox.Font = Enum.Font.Gotham; TextBox.TextColor3 = Color3.new(1,1,1); TextBox.TextSize = 12; TextBox.ClearTextOnFocus = false
-    Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0, 4)
-
-    TextBox.FocusLost:Connect(function(enterPressed)
-        callback(TextBox.Text)
-    end)
-end
-
--- Input Chỉnh Tốc Độ Di Chuyển
-CreateInput(Scroll, "Tốc độ (Speed)", tostring(currentSpeed), function(val)
-    local newSpeed = tonumber(val)
-    if newSpeed then
-        currentSpeed = newSpeed
-        SendNotify("Tốc Độ", "Đã đổi thành: " .. newSpeed, 2)
-    else
-        SendNotify("Lỗi", "Vui lòng nhập số hợp lệ!", 2)
-    end
-end)
-
---- [[ TÍNH NĂNG CHÍNH ]] ---
-CreateBtn(Scroll, "Bảng Di Chuyển (Nổi)", function(s) 
-    MovePad.Visible = s 
-end)
-
-CreateBtn(Scroll, "Hiển Thị FPS", function(s) 
-    fpsActive = s 
-    FpsPill.Visible = s 
-end)
-
-CreateBtn(Scroll, "Fast Attack (Tốc độ)", function(s) 
-    fastAttackActive = s 
-    if s then pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/AnhDzaiScript/Setting/refs/heads/main/FastMax.lua"))() end) end
-end)
-
-CreateBtn(Scroll, "Spin Bot 360", function(s) spinBotActive = s end)
-
-CreateBtn(Scroll, "Ghost Mode", function(s) 
+--- [[ TÍNH NĂNG TAB CHÍNH ]] ---
+CreateInput(ScrollMain, "Tốc độ (Speed)", tostring(currentSpeed), function(val) local newSpeed = tonumber(val); if newSpeed then currentSpeed = newSpeed; SendNotify("Hệ Thống", "Tốc độ di chuyển: " .. newSpeed, 2) else SendNotify("Lỗi", "Định dạng số không hợp lệ!", 2) end end)
+CreateBtn(ScrollMain, "Bảng Di Chuyển (Nổi)", function(s) MovePad.Visible = s end)
+CreateBtn(ScrollMain, "Hiển Thị FPS", function(s) fpsActive = s; FpsPill.Visible = s end)
+CreateBtn(ScrollMain, "Spin Bot 360", function(s) spinBotActive = s end)
+CreateBtn(ScrollMain, "Ghost Mode", function(s) 
     ghostActive = s 
     if s and lp.Character then 
         lockedPos = lp.Character.HumanoidRootPart.CFrame; lp.Character.Archivable = true
@@ -226,124 +235,192 @@ CreateBtn(Scroll, "Ghost Mode", function(s)
         ghostModel:Destroy(); workspace.CurrentCamera.CameraSubject = lp.Character.Humanoid
     end 
 end)
+CreateBtn(ScrollMain, "Back Pos (Tele)", function(s) backPosActive = s; if s and lp.Character then backPosCoord = lp.Character.HumanoidRootPart.CFrame elseif not s and backPosCoord and lp.Character then lp.Character.HumanoidRootPart.CFrame = backPosCoord end end)
+CreateBtn(ScrollMain, "Ghim Vị Trí", function(s) ghimActive = s; if s and lp.Character then lockedPos = lp.Character.HumanoidRootPart.CFrame end end)
 
-CreateBtn(Scroll, "Back Pos (Tele)", function(s) backPosActive = s; if s and lp.Character then backPosCoord = lp.Character.HumanoidRootPart.CFrame elseif not s and backPosCoord and lp.Character then lp.Character.HumanoidRootPart.CFrame = backPosCoord end end)
-CreateBtn(Scroll, "Ghim Vị Trí", function(s) ghimActive = s; if s and lp.Character then lockedPos = lp.Character.HumanoidRootPart.CFrame end end)
-CreateBtn(Scroll, "Xray ESP", function(s) xrayActive = s end)
-CreateBtn(Scroll, "Air Walk", function(s) airWalkActive = s if s then airWalkPart = Instance.new("Part", workspace); airWalkPart.Size = Vector3.new(15, 0.5, 15); airWalkPart.Anchored = true; airWalkPart.Transparency = 0.6; airWalkPart.Material = Enum.Material.Glass else if airWalkPart then airWalkPart:Destroy() end end end)
+--- [[ TÍNH NĂNG TAB ESP ]] ---
+CreateBtn(ScrollESP, "ESP Line (Đường thẳng)", function(s) espLineActive = s end)
+CreateBtn(ScrollESP, "ESP Box (Khung hình)", function(s) espBoxActive = s end)
+CreateBtn(ScrollESP, "ESP Count (Đếm người)", function(s) espCountActive = s; CountPill.Visible = s end)
+CreateBtn(ScrollESP, "Xray Chams (Highlight)", function(s) xrayActive = s end)
 
--- LOGIC ĐÓNG MỞ (NÚT BẤM & 3/4 NGÓN TAY)
-local OpenBtn = Instance.new("ImageButton", ScreenGui); OpenBtn.Size = UDim2.new(0, 55, 0, 55); OpenBtn.Position = UDim2.new(1, -65, 0.5, -27); OpenBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15); OpenBtn.BackgroundTransparency = 0.3; OpenBtn.Image = ASSET_ID; OpenBtn.Visible = false; OpenBtn.Active = true; Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
-local FloatStroke = Instance.new("UIStroke", OpenBtn); FloatStroke.Color = Color3.fromRGB(255,255,255); FloatStroke.Transparency = 0.8; FloatStroke.Thickness = 1.2
-MakeDraggable(OpenBtn)
+-- LOGIC ĐÓNG MỞ (MENU CHÍNH)
+local OpenBtn = Instance.new("ImageButton", ScreenGui); OpenBtn.Size = UDim2.new(0, 55, 0, 55); OpenBtn.Position = UDim2.new(1, -65, 0.5, -27); OpenBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 32); OpenBtn.BackgroundTransparency = 0.3; OpenBtn.Image = ASSET_ID; OpenBtn.Visible = false; OpenBtn.Active = true; Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
+ApplyIOSGlassEdge(OpenBtn); MakeDraggable(OpenBtn)
 
-MiniBtn.MouseButton1Click:Connect(function() MainFrame:TweenSize(MainFrame.Size.Y.Offset == 440 and UDim2.new(0, 210, 0, 38) or UDim2.new(0, 210, 0, 440), "Out", "Quart", 0.3, true); MiniBtn.Text = MainFrame.Size.Y.Offset == 440 and "▶" or "▼" end)
+MiniBtn.MouseButton1Click:Connect(function() 
+    local isExpanded = MainFrame.Size.Y.Offset == 460
+    if isExpanded then
+        ScrollMain.Visible = false
+        ScrollESP.Visible = false
+        TabBar.Visible = false
+        MainFrame:TweenSize(UDim2.new(0, 220, 0, 40), "Out", "Quart", 0.35, true)
+        MiniBtn.Text = "▶"
+    else
+        TabBar.Visible = true
+        if TabMainBtn.TextColor3 == IOS_BLUE then ScrollMain.Visible = true else ScrollESP.Visible = true end
+        MainFrame:TweenSize(UDim2.new(0, 220, 0, 460), "Out", "Quart", 0.35, true)
+        MiniBtn.Text = "▼"
+    end
+end)
 
-local function ToggleMenu()
-    MainFrame.Visible = not MainFrame.Visible
-    if not MainFrame.Visible then OpenBtn.Visible = true else OpenBtn.Visible = false end
-end
+local function ToggleMenu() MainFrame.Visible = not MainFrame.Visible; if not MainFrame.Visible then OpenBtn.Visible = true else OpenBtn.Visible = false end end
+CloseBtn.MouseButton1Click:Connect(ToggleMenu); OpenBtn.MouseButton1Click:Connect(ToggleMenu)
 
-CloseBtn.MouseButton1Click:Connect(ToggleMenu)
-OpenBtn.MouseButton1Click:Connect(ToggleMenu)
-
--- [[ TÍNH NĂNG MỞ MENU 3 NGÓN / ẨN FLOATING 4 NGÓN ]]
+-- [[ LOGIC CHẠM TƯỜNG & MULTI-TOUCH ]]
 local activeTouches = {}
-local TOUCH_THRESHOLD = 0.25 
-
 uis.InputBegan:Connect(function(input, gpe)
+    if tapWallActive and not gpe and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
+        local pos = input.Position
+        local ray = cam:ScreenPointToRay(pos.X, pos.Y)
+        local params = RaycastParams.new()
+        local filter = {}
+        if lp.Character then table.insert(filter, lp.Character) end
+        if ghostModel then table.insert(filter, ghostModel) end
+        params.FilterDescendantsInstances = filter
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        
+        local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, params)
+        if result and result.Instance then
+            local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local camDir = ray.Direction.Unit
+                local destPos = result.Position + (camDir * 8) 
+                
+                local safeRayOrigin = Vector3.new(destPos.X, destPos.Y + 10, destPos.Z)
+                local safeRayDirection = Vector3.new(0, -30, 0)
+                local safeResult = workspace:Raycast(safeRayOrigin, safeRayDirection, params)
+                
+                if safeResult and safeResult.Instance then
+                    root.CFrame = CFrame.new(safeResult.Position + Vector3.new(0, 3.5, 0))
+                    SendNotify("Tap Wall", "Đã xuyên qua thành công!", 1.5)
+                else
+                    root.CFrame = CFrame.new(destPos.X, root.Position.Y, destPos.Z)
+                    SendNotify("Tap Wall", "Giữ nguyên độ cao!", 2)
+                end
+            end
+        end
+    end
+
     if input.UserInputType == Enum.UserInputType.Touch then
         activeTouches[input] = os.clock()
-        
         task.delay(0.05, function()
-            local count = 0
-            local minTime = math.huge
-            local maxTime = 0
-            
-            for _, timeStart in pairs(activeTouches) do
-                count = count + 1
-                if timeStart < minTime then minTime = timeStart end
-                if timeStart > maxTime then maxTime = timeStart end
-            end
-            
-            local isSimultaneous = (maxTime - minTime) <= TOUCH_THRESHOLD
-            
-            if isSimultaneous then
-                if count == 3 then
-                    ToggleMenu()
-                    activeTouches = {}
-                elseif count == 4 then
-                    OpenBtn.Visible = not OpenBtn.Visible
-                    SendNotify("Hệ Thống", OpenBtn.Visible and "Đã hiện nút Floating" or "Đã ẩn nút Floating", 2)
-                    activeTouches = {}
-                end
+            local count, minTime, maxTime = 0, math.huge, 0
+            for _, timeStart in pairs(activeTouches) do count = count + 1; if timeStart < minTime then minTime = timeStart end; if timeStart > maxTime then maxTime = timeStart end end
+            if (maxTime - minTime) <= 0.25 then
+                if count == 3 then ToggleMenu(); activeTouches = {} elseif count == 4 then OpenBtn.Visible = not OpenBtn.Visible; SendNotify("Hệ Thống", OpenBtn.Visible and "Hiện Icon Mở Nhanh" or "Ẩn Icon Mở Nhanh", 2); activeTouches = {} end
             end
         end)
     end
 end)
+uis.InputEnded:Connect(function(input, gpe) if input.UserInputType == Enum.UserInputType.Touch then activeTouches[input] = nil end end)
 
-uis.InputEnded:Connect(function(input, gpe)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        activeTouches[input] = nil
+-- ESP CACHE LOGIC
+local function getESP(player)
+    if not espCache[player] then
+        local data = {}
+        data.Box = Instance.new("Frame", ESPLayer)
+        data.Box.BackgroundTransparency = 1; data.Box.Visible = false
+        local stroke = Instance.new("UIStroke", data.Box); stroke.Color = IOS_BLUE; stroke.Thickness = 1.5; stroke.Transparency = 0.2
+        
+        data.Line = Instance.new("Frame", ESPLayer)
+        data.Line.BackgroundColor3 = IOS_BLUE; data.Line.BorderSizePixel = 0; data.Line.AnchorPoint = Vector2.new(0.5, 0.5); data.Line.Visible = false; data.Line.BackgroundTransparency = 0.2
+        espCache[player] = data
     end
-end)
+    return espCache[player]
+end
 
--- VÒNG LẶP HỖ TRỢ ATTACK
-task.spawn(function()
-    while task.wait() do
-        if fastAttackActive then
-            pcall(function()
-                local net = rs:WaitForChild("Modules"):WaitForChild("Net")
-                net:WaitForChild("RE/RegisterAttack"):FireServer(0)
-            end)
-            task.wait(0.01)
-        else
-            task.wait(0.1)
-        end
-    end
-end)
-
--- Logic Đếm FPS
-local lastTick = os.clock()
-local frameCount = 0
-
-runService.RenderStepped:Connect(function()
-    if fpsActive then
-        frameCount = frameCount + 1
-        local currentTick = os.clock()
-        if currentTick - lastTick >= 1 then
-            FpsLabel.Text = "FPS: " .. frameCount
-            frameCount = 0
-            lastTick = currentTick
-        end
-    end
-end)
-
--- Heartbeat Logic (Di chuyển, Spin & ESP)
-runService.Heartbeat:Connect(function(dt)
+-- MAIN HEARTBEAT & RENDER LOOP
+local lastTick, frameCount = os.clock(), 0
+runService.RenderStepped:Connect(function(dt)
+    if fpsActive then frameCount = frameCount + 1; local currentTick = os.clock(); if currentTick - lastTick >= 1 then FpsLabel.Text = "FPS: " .. frameCount; frameCount = 0; lastTick = currentTick end end
+    
     local char = lp.Character; if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local root = char.HumanoidRootPart
     local target = (ghostActive and ghostModel) and ghostModel:FindFirstChild("HumanoidRootPart") or root
     
+    -- [[ TÍCH HỢP FLY X-RAY (0 GRAVITY) VÀO CÁC NÚT DI CHUYỂN ]]
     if localMoveDir.Magnitude > 0 then
-        target.Velocity = Vector3.zero
+        local bv = target:FindFirstChild("VuKhoa_Fly") or Instance.new("BodyVelocity")
+        bv.Name = "VuKhoa_Fly"
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        
         local moveVec = (target.CFrame.LookVector * -localMoveDir.Z) + (target.CFrame.RightVector * localMoveDir.X) + (Vector3.new(0,1,0) * localMoveDir.Y)
-        if moveVec.Magnitude > 0 then target.CFrame = target.CFrame + (moveVec.Unit * (currentSpeed * 50 * dt)) end
-    end
-    
-    if (ghostActive or ghimActive) and lockedPos then root.CFrame = lockedPos; root.Velocity = Vector3.zero end
-    if spinBotActive then root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(50), 0) end
-
-    if xrayActive then
-        for _, p in pairs(game.Players:GetPlayers()) do
-            if p ~= lp and p.Character then
-                local h = p.Character:FindFirstChild("TrVuKhoaa_ESP") or Instance.new("Highlight", p.Character)
-                h.FillColor = Color3.fromRGB(0, 150, 255); h.Name = "TrVuKhoaa_ESP"
+        if moveVec.Magnitude > 0 then 
+            bv.Velocity = moveVec.Unit * (currentSpeed * 50) 
+        else 
+            bv.Velocity = Vector3.zero 
+        end
+        bv.Parent = target
+        
+        if char:FindFirstChild("Humanoid") then char.Humanoid:ChangeState(Enum.HumanoidStateType.Freefall) end
+        for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
+    else
+        local bv = target:FindFirstChild("VuKhoa_Fly")
+        if bv then 
+            bv:Destroy() 
+            if not ghostActive then
+                for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = true end end
             end
         end
     end
     
-    if airWalkActive and airWalkPart then airWalkPart.Position = target.Position - Vector3.new(0, 3.5, 0) end
-end)
+    -- Xử lý Ghim Vị Trí
+    if (ghostActive or ghimActive) and lockedPos then root.CFrame = lockedPos; root.Velocity = Vector3.zero end
+    
+    -- Xử lý Spin Bot 360
+    if spinBotActive then root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(50), 0) end
 
-SendNotify("VŨ KHOA V31", "Cập nhật hoàn tất: Floating Move Pad sẵn sàng!", 5)
+    -- Xử lý ESP
+    local playerCount = 0
+    local bCenter = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y)
+    
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p ~= lp then
+            if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                playerCount = playerCount + 1
+                local eChar = p.Character
+                local eRoot = eChar.HumanoidRootPart
+                
+                if xrayActive then
+                    local h = eChar:FindFirstChild("TrVuKhoaa_ESP") or Instance.new("Highlight", eChar)
+                    h.FillColor = IOS_BLUE; h.Name = "TrVuKhoaa_ESP"
+                else
+                    local h = eChar:FindFirstChild("TrVuKhoaa_ESP"); if h then h:Destroy() end
+                end
+                
+                local espData = getESP(p)
+                local headPos, headVis = cam:WorldToViewportPoint(eRoot.Position + Vector3.new(0, 3.5, 0))
+                local feetPos, feetVis = cam:WorldToViewportPoint(eRoot.Position - Vector3.new(0, 3.5, 0))
+                
+                if headVis or feetVis then
+                    if espBoxActive then
+                        local height = math.abs(headPos.Y - feetPos.Y)
+                        local width = height * 0.6
+                        espData.Box.Size = UDim2.new(0, width, 0, height)
+                        espData.Box.Position = UDim2.new(0, headPos.X - width/2, 0, headPos.Y)
+                        espData.Box.Visible = true
+                    else espData.Box.Visible = false end
+                    
+                    if espLineActive then
+                        local pPos = Vector2.new(feetPos.X, feetPos.Y)
+                        local dist = (bCenter - pPos).Magnitude
+                        espData.Line.Size = UDim2.new(0, dist, 0, 1.5)
+                        espData.Line.Position = UDim2.new(0, (bCenter.X + pPos.X)/2, 0, (bCenter.Y + pPos.Y)/2)
+                        espData.Line.Rotation = math.deg(math.atan2(pPos.Y - bCenter.Y, pPos.X - bCenter.X))
+                        espData.Line.Visible = true
+                    else espData.Line.Visible = false end
+                else
+                    espData.Box.Visible = false; espData.Line.Visible = false
+                end
+            else
+                if espCache[p] then espCache[p].Box.Visible = false; espCache[p].Line.Visible = false end
+            end
+        end
+    end
+    
+    for p, data in pairs(espCache) do
+        if not p or not p.Parent then data.Box:Destroy(); data.Line:Destroy(); espCache[p] = nil end
+    end
+    if espCountActive then CountLabel.Text = "Địch: " .. playerCount end
+end)

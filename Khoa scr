@@ -26,7 +26,9 @@ end
 
 -- Biến logic UI
 local localMoveDir = Vector3.new(0,0,0)
-local currentSpeed = 2 
+local currentSpeed = 2 -- Tốc độ bảng Joystick/Fly
+local currentWalkSpeedLevel = 1 -- Tốc độ chạy bộ CFrame (Mức 1 đến 100)
+local noclipActive = false
 local ghimActive, xrayActive, ghostActive, flyXrayActive, backPosActive = false, false, false, false, false
 local spinBotActive, fpsActive, tapWallActive, infJumpActive = false, false, false, false
 local espLineActive, espBoxActive, espCountActive = false, false, false
@@ -175,9 +177,9 @@ local moves = {{"Tiến",Vector3.new(0,0,-1)},{"Lùi",Vector3.new(0,0,1)},{"Trá
 for _, v in pairs(moves) do CreateBtn(PadGrid, v[1], function(s) if s then localMoveDir += v[2] else localMoveDir -= v[2] end end) end
 CreateBtn(PadGrid, "Tap Wall", function(s) tapWallActive = s end) 
 
--- 8. TÍNH NĂNG MỚI: BẢNG LOCATION NỔI (CHỨA NHẢY VÔ HẠN)
+-- 8. TÍNH NĂNG MỚI: BẢNG LOCATION NỔI (ĐÃ UNLOCK 100 TỐC ĐỘ + BYPASS NOCLIP)
 local LocationPad = Instance.new("Frame", ScreenGui)
-LocationPad.Size = UDim2.new(0, 190, 0, 72) -- Vừa vặn 1 nút
+LocationPad.Size = UDim2.new(0, 190, 0, 150)
 LocationPad.Position = UDim2.new(0.2, 0, 0.4, 0)
 LocationPad.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
 LocationPad.BackgroundTransparency = 0.35
@@ -188,9 +190,18 @@ Instance.new("UICorner", LocationPad).CornerRadius = UDim.new(0, 16)
 ApplyIOSGlassEdge(LocationPad)
 MakeDraggable(LocationPad)
 
+local LocMiniBtn = Instance.new("TextButton", LocationPad)
+LocMiniBtn.Size = UDim2.new(0, 28, 0, 28)
+LocMiniBtn.Position = UDim2.new(0, 5, 0, 0)
+LocMiniBtn.BackgroundTransparency = 1
+LocMiniBtn.Text = "▼"
+LocMiniBtn.TextColor3 = IOS_BLUE
+LocMiniBtn.Font = Enum.Font.GothamMedium
+LocMiniBtn.TextSize = 13
+
 local LocTitle = Instance.new("TextLabel", LocationPad)
-LocTitle.Size = UDim2.new(1, -60, 0, 28)
-LocTitle.Position = UDim2.new(0, 12, 0, 0)
+LocTitle.Size = UDim2.new(1, -70, 0, 28)
+LocTitle.Position = UDim2.new(0, 35, 0, 0) 
 LocTitle.BackgroundTransparency = 1
 LocTitle.Text = "BẢNG LOCATION"
 LocTitle.TextColor3 = Color3.fromRGB(180, 180, 190)
@@ -198,20 +209,9 @@ LocTitle.Font = Enum.Font.GothamMedium
 LocTitle.TextSize = 10
 LocTitle.TextXAlignment = "Left"
 
--- Nút Thu gọn (-)
-local LocMiniBtn = Instance.new("TextButton", LocationPad)
-LocMiniBtn.Size = UDim2.new(0, 28, 0, 28)
-LocMiniBtn.Position = UDim2.new(1, -56, 0, 0)
-LocMiniBtn.BackgroundTransparency = 1
-LocMiniBtn.Text = "▼"
-LocMiniBtn.TextColor3 = IOS_BLUE
-LocMiniBtn.Font = Enum.Font.GothamMedium
-LocMiniBtn.TextSize = 13
-
--- Nút Đóng nhanh (X)
 local LocCloseBtn = Instance.new("TextButton", LocationPad)
 LocCloseBtn.Size = UDim2.new(0, 28, 0, 28)
-LocCloseBtn.Position = UDim2.new(1, -28, 0, 0)
+LocCloseBtn.Position = UDim2.new(1, -30, 0, 0)
 LocCloseBtn.BackgroundTransparency = 1
 LocCloseBtn.Text = "X"
 LocCloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58)
@@ -226,14 +226,14 @@ local LCL = Instance.new("UIListLayout", LocContent)
 LCL.Padding = UDim.new(0, 6); LCL.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 LocMiniBtn.MouseButton1Click:Connect(function()
-    local isEx = LocationPad.Size.Y.Offset == 72
+    local isEx = LocationPad.Size.Y.Offset > 28
     if isEx then 
         LocContent.Visible = false
         LocationPad:TweenSize(UDim2.new(0, 190, 0, 28), "Out", "Quart", 0.3, true)
         LocMiniBtn.Text = "▶" 
     else 
         LocContent.Visible = true
-        LocationPad:TweenSize(UDim2.new(0, 190, 0, 72), "Out", "Quart", 0.3, true)
+        LocationPad:TweenSize(UDim2.new(0, 190, 0, 150), "Out", "Quart", 0.3, true)
         LocMiniBtn.Text = "▼" 
     end
 end)
@@ -243,13 +243,33 @@ LocCloseBtn.MouseButton1Click:Connect(function()
     SendNotify("Hệ Thống", "Đã đóng nhanh Bảng Location", 1.5)
 end)
 
--- Gắn tính năng Nhảy Vô Hạn vào trong bảng này
+-- Nhảy Vô Hạn, Noclip Bypass, Tốc Độ Chạy Bypass (1-100)
 CreateBtn(LocContent, "Nhảy Vô Hạn (Inf Jump)", function(s) infJumpActive = s end)
+CreateBtn(LocContent, "Noclip (Xuyên tường Bypass)", function(s) noclipActive = s end)
+
+CreateInput(LocContent, "Tốc độ chạy (1-100)", "", function(val) 
+    if val == "" or tonumber(val) == nil then 
+        currentWalkSpeedLevel = 1
+        SendNotify("Hệ Thống", "Đã xóa số, khôi phục tốc độ Mặc Định", 2)
+    else
+        local num = tonumber(val)
+        -- Giới hạn số từ 1 đến 100 (Cẩn thận văng map khi trên 20)
+        local speedLevel = math.clamp(num, 1, 100)
+        currentWalkSpeedLevel = speedLevel
+        SendNotify("Hệ Thống", "Tốc độ Bypass: Mức " .. speedLevel, 1.5) 
+    end 
+end)
 
 --- [[ TÍNH NĂNG TAB CHÍNH ]] ---
-CreateInput(ScrollMain, "Tốc độ (Speed)", tostring(currentSpeed), function(val) local newSp = tonumber(val); if newSp then currentSpeed = newSp; SendNotify("Hệ Thống", "Tốc độ di chuyển: " .. newSp, 2) end end)
+CreateInput(ScrollMain, "Tốc độ Bảng Move", tostring(currentSpeed), function(val) 
+    local newSp = tonumber(val)
+    if newSp then 
+        currentSpeed = newSp
+        SendNotify("Hệ Thống", "Tốc độ Bảng Di Chuyển: " .. newSp, 2) 
+    end 
+end)
 
-CreateBtn(ScrollMain, "Bảng Location (Nổi)", function(s) LocationPad.Visible = s end) -- Thêm tùy chọn mở Bảng Location mới
+CreateBtn(ScrollMain, "Bảng Location (Nổi)", function(s) LocationPad.Visible = s end)
 CreateBtn(ScrollMain, "Bảng Di Chuyển (Nổi)", function(s) MovePad.Visible = s end)
 CreateBtn(ScrollMain, "Nút Reset (Nổi)", function(s) ResetBtnFrame.Visible = s end)
 
@@ -272,7 +292,6 @@ local function ToggleMenu() MainFrame.Visible = not MainFrame.Visible; OpenBtn.V
 CloseBtn.MouseButton1Click:Connect(ToggleMenu); OpenBtn.MouseButton1Click:Connect(ToggleMenu)
 
 -- [[ LOGIC INFINITE JUMP & MULTI-TOUCH ]]
--- Sự kiện Nhảy Vô Hạn (Lắng nghe nút nhảy trên Mobile/PC)
 uis.JumpRequest:Connect(function()
     if infJumpActive and lp.Character and lp.Character:FindFirstChild("Humanoid") then
         lp.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
@@ -293,29 +312,65 @@ uis.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputT
 -- ESP CACHE
 local function getESP(p) if not espCache[p] then local data = {}; data.Box = Instance.new("Frame", ESPLayer); data.Box.BackgroundTransparency = 1; data.Box.Visible = false; local st = Instance.new("UIStroke", data.Box); st.Color = IOS_BLUE; st.Thickness = 1.5; data.Line = Instance.new("Frame", ESPLayer); data.Line.BackgroundColor3 = IOS_BLUE; data.Line.BorderSizePixel = 0; data.Line.AnchorPoint = Vector2.new(0.5, 0.5); data.Line.Visible = false; espCache[p] = data end return espCache[p] end
 
+-- [[ VÒNG LẶP VẬT LÝ DÀNH CHO NOCLIP BYPASS (CHỐNG BACK & AC) ]]
+runService.Stepped:Connect(function()
+    if noclipActive and lp.Character then
+        local hum = lp.Character:FindFirstChild("Humanoid")
+        
+        -- State Spoofing: Ép vào trạng thái Vật Lý Tự Do để né Touched Event của Game
+        if hum and hum:GetState() ~= Enum.HumanoidStateType.Freefall and hum:GetState() ~= Enum.HumanoidStateType.Physics then
+            hum:ChangeState(Enum.HumanoidStateType.Physics)
+        end
+        
+        for _, v in pairs(lp.Character:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = false
+                -- RotVelocity Nullifier: Chống giật văng loạn xạ khi kẹt góc kẹt tường
+                v.RotVelocity = Vector3.zero
+            end
+        end
+    end
+end)
+
 -- MAIN LOOP
 local lastTick, fCount = os.clock(), 0
-SendNotify("Vũ Khoa V31", "Hệ thống bảo vệ (Anti-Stun, FPS, Anti-AFK) đã chạy ngầm!", 4)
+SendNotify("Vũ Khoa V31", "Hệ thống bảo vệ đã chạy ngầm!", 4)
 
 runService.RenderStepped:Connect(function(dt)
     if fpsActive then fCount = fCount + 1; local cur = os.clock(); if cur - lastTick >= 1 then FpsLabel.Text = "FPS: " .. fCount; fCount = 0; lastTick = cur end end
     local char = lp.Character; if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local root = char.HumanoidRootPart; local target = (ghostActive and ghostModel) and ghostModel:FindFirstChild("HumanoidRootPart") or root
     
-    -- XỬ LÝ ANTI STUN MẶC ĐỊNH (GOD TIER)
     local hum = char:FindFirstChild("Humanoid")
     if hum then
-        if hum.WalkSpeed < 16 then hum.WalkSpeed = 16 end 
+        if hum.WalkSpeed < 16 then hum.WalkSpeed = 16 end
+        
+        -- Bypass WalkSpeed bằng CFrame (Hoạt động hoàn hảo kết hợp cùng Noclip)
+        if currentWalkSpeedLevel > 1 and localMoveDir.Magnitude == 0 and hum.MoveDirection.Magnitude > 0 then
+            -- Chỉ số khuyếch đại có thể điều chỉnh để chạy max 100 level
+            local speedMultiplier = (currentWalkSpeedLevel - 1) * 0.4
+            root.CFrame = root.CFrame + (hum.MoveDirection * speedMultiplier)
+        end
+        
         if hum.JumpPower < 50 then hum.JumpPower = 50 end
-        hum.Sit = false; hum.PlatformStand = false
-        local st = hum:GetState(); if st == Enum.HumanoidStateType.Ragdoll or st == Enum.HumanoidStateType.FallingDown or st == Enum.HumanoidStateType.Physics then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end
+        hum.Sit = false
+        
+        -- XỬ LÝ ANTI STUN (Tạm tắt khi Noclip bật để không xung đột Bypass State)
+        if not noclipActive then
+            hum.PlatformStand = false
+            local st = hum:GetState()
+            if st == Enum.HumanoidStateType.Ragdoll or st == Enum.HumanoidStateType.FallingDown or st == Enum.HumanoidStateType.Physics then 
+                hum:ChangeState(Enum.HumanoidStateType.GettingUp) 
+            end
+        end
     end
+    
     for _, v in pairs(char:GetDescendants()) do
         if v:IsA("BasePart") and v.Anchored then v.Anchored = false end
         if v:IsA("Weld") or v:IsA("WeldConstraint") then if (v.Part0 and not v.Part0:IsDescendantOf(char)) or (v.Part1 and not v.Part1:IsDescendantOf(char)) then v:Destroy() end end
     end
 
-    -- FLY & MOVE
+    -- FLY & MOVE TỪ BẢNG JOYSTICK
     if localMoveDir.Magnitude > 0 then
         local bv = target:FindFirstChild("VuKhoa_Fly") or Instance.new("BodyVelocity"); bv.Name = "VuKhoa_Fly"; bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
         local mv = (target.CFrame.LookVector * -localMoveDir.Z) + (target.CFrame.RightVector * localMoveDir.X) + (Vector3.new(0,1,0) * localMoveDir.Y)

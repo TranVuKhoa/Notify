@@ -1,4 +1,4 @@
--- [[ VŨ KHOA V31 PRO - IOS GLASS + TABS + CIRCLE FLOATING BUTTONS + BYPASS + SET SPAWN ]]
+-- [[ VŨ KHOA V31 PRO - IOS GLASS + TABS + CIRCLE FLOATING BUTTONS + BYPASS CHUẨN ]]
 local lp = game:GetService("Players").LocalPlayer
 local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
@@ -7,17 +7,15 @@ local rs = game:GetService("ReplicatedStorage")
 local cam = workspace.CurrentCamera
 
 -- [[ HỆ THỐNG CHẠY NGẦM MẶC ĐỊNH ]]
--- 1. Auto Unlock FPS
 if setfpscap then pcall(function() setfpscap(999) end) end
 
--- 2. Anti-AFK (Chống văng 20 phút)
 local VirtualUser = game:GetService("VirtualUser")
 lp.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- 3. Bypass Anti-Cheat (Metatable Hook)
+-- Bypass Anti-Cheat cơ bản (Che giấu Tốc độ/Nhảy & Chống Kick)
 pcall(function()
     local mt = getrawmetatable(game)
     local oldIndex = mt.__index
@@ -42,26 +40,26 @@ pcall(function()
     setreadonly(mt, true)
 end)
 
--- Xóa UI cũ
 for _, old in pairs(coreGui:GetChildren()) do
     if old.Name == "TrVuKhoaa_Sync_UI" or old.Name == "VuKhoa_Notify_System" or old.Name == "VuKhoa_ESP_Layer" then
         old:Destroy()
     end
 end
 
--- Biến logic UI
+-- Biến logic
 local localMoveDir = Vector3.new(0,0,0)
 local currentSpeed = 2 
 local currentWalkSpeedLevel = 1 
 local noclipActive = false
-local ghimActive, xrayActive, ghostActive, flyXrayActive, backPosActive = false, false, false, false, false
+local ghimActive, xrayActive, ghostActive, backPosActive = false, false, false, false
 local spinBotActive, fpsActive, tapWallActive, infJumpActive = false, false, false, false
 local espLineActive, espBoxActive, espCountActive = false, false, false
 local setSpawnActive = false
 local savedSpawnCFrame = nil
 local notifyEnabled = true
 local lockedPos, ghostModel, backPosCoord = nil, nil, nil
-local ASSET_ID = "rbxassetid://127697789661018"
+
+local ASSET_ID = "rbxthumb://type=Asset&id=82965671854344&w=150&h=150" 
 local IOS_BLUE = Color3.fromRGB(10, 132, 255)
 
 local ESPLayer = Instance.new("ScreenGui", coreGui)
@@ -88,7 +86,6 @@ local function ApplyIOSGlassEdge(parent)
     return stroke
 end
 
--- [[================== GIAO DIỆN CHÍNH ==================]]
 local function SendNotify(title, text, duration)
     if not notifyEnabled then return end
     local NotifyGui = coreGui:FindFirstChild("VuKhoa_Notify_System") or Instance.new("ScreenGui", coreGui)
@@ -123,6 +120,7 @@ local function MakeDraggable(gui, dragHandle)
     end)
 end
 
+-- =================== GIAO DIỆN CHÍNH ===================
 local ScreenGui = Instance.new("ScreenGui", coreGui); ScreenGui.Name = "TrVuKhoaa_Sync_UI"
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Size = UDim2.new(0, 220, 0, 460); MainFrame.Position = UDim2.new(0.5, -110, 0.4, 0)
@@ -151,115 +149,33 @@ end
 local FpsPill, FpsLabel = CreateFloatingPill(-100, "FPS: 0")
 local CountPill, CountLabel = CreateFloatingPill(10, "Địch: 0")
 
--- =================== NÚT RESET NỔI (TRÒN) ===================
-local ResetBtnFrame = Instance.new("Frame", ScreenGui)
-ResetBtnFrame.Size = UDim2.new(0, 42, 0, 42); ResetBtnFrame.Position = UDim2.new(0.5, -21, 0.1, 0); ResetBtnFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); ResetBtnFrame.BackgroundTransparency = 0.35; ResetBtnFrame.BorderSizePixel = 0; ResetBtnFrame.Visible = false 
-Instance.new("UICorner", ResetBtnFrame).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(ResetBtnFrame)
-local ResetBtn = Instance.new("TextButton", ResetBtnFrame); ResetBtn.Size = UDim2.new(1, 0, 1, 0); ResetBtn.BackgroundTransparency = 1; ResetBtn.Text = "💀"; ResetBtn.Font = Enum.Font.GothamBold; ResetBtn.TextSize = 20
-MakeDraggable(ResetBtnFrame, ResetBtn)
-
+-- NÚT NỔI (TRÒN)
+local ResetBtnFrame = Instance.new("Frame", ScreenGui); ResetBtnFrame.Size = UDim2.new(0, 42, 0, 42); ResetBtnFrame.Position = UDim2.new(0.5, -21, 0.1, 0); ResetBtnFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); ResetBtnFrame.BackgroundTransparency = 0.35; ResetBtnFrame.BorderSizePixel = 0; ResetBtnFrame.Visible = false; Instance.new("UICorner", ResetBtnFrame).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(ResetBtnFrame)
+local ResetBtn = Instance.new("TextButton", ResetBtnFrame); ResetBtn.Size = UDim2.new(1, 0, 1, 0); ResetBtn.BackgroundTransparency = 1; ResetBtn.Text = "💀"; ResetBtn.Font = Enum.Font.GothamBold; ResetBtn.TextSize = 20; MakeDraggable(ResetBtnFrame, ResetBtn)
 local isDraggingReset = false; local dragStartPos
 ResetBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then dragStartPos = input.Position; isDraggingReset = false end end)
 ResetBtn.InputChanged:Connect(function(input) if dragStartPos and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then if (input.Position - dragStartPos).Magnitude > 5 then isDraggingReset = true end end end)
 ResetBtn.MouseButton1Click:Connect(function() if isDraggingReset then return end; local char = lp.Character; if char then local hum = char:FindFirstChild("Humanoid"); if hum then hum.Health = 0 end char:BreakJoints(); SendNotify("Hệ Thống", "Đã ép Reset nhân vật!", 2) end end)
 
--- =================== NÚT SET SPAWN NỔI (TRÒN) ===================
-local SpawnBtnFrame = Instance.new("Frame", ScreenGui)
-SpawnBtnFrame.Size = UDim2.new(0, 42, 0, 42)
-SpawnBtnFrame.Position = UDim2.new(0.5, -70, 0.1, 0) -- Xếp bên trái nút Reset
-SpawnBtnFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
-SpawnBtnFrame.BackgroundTransparency = 0.35
-SpawnBtnFrame.BorderSizePixel = 0
-SpawnBtnFrame.Visible = false 
-Instance.new("UICorner", SpawnBtnFrame).CornerRadius = UDim.new(1, 0)
-ApplyIOSGlassEdge(SpawnBtnFrame)
-
-local SpawnBtn = Instance.new("TextButton", SpawnBtnFrame)
-SpawnBtn.Size = UDim2.new(1, 0, 1, 0)
-SpawnBtn.BackgroundTransparency = 1
-SpawnBtn.Text = "🚩"
-SpawnBtn.Font = Enum.Font.GothamMedium
-SpawnBtn.TextColor3 = Color3.fromRGB(240, 240, 245)
-SpawnBtn.TextSize = 20
-MakeDraggable(SpawnBtnFrame, SpawnBtn)
-
+local SpawnBtnFrame = Instance.new("Frame", ScreenGui); SpawnBtnFrame.Size = UDim2.new(0, 42, 0, 42); SpawnBtnFrame.Position = UDim2.new(0.5, -70, 0.1, 0); SpawnBtnFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); SpawnBtnFrame.BackgroundTransparency = 0.35; SpawnBtnFrame.BorderSizePixel = 0; SpawnBtnFrame.Visible = false; Instance.new("UICorner", SpawnBtnFrame).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(SpawnBtnFrame)
+local SpawnBtn = Instance.new("TextButton", SpawnBtnFrame); SpawnBtn.Size = UDim2.new(1, 0, 1, 0); SpawnBtn.BackgroundTransparency = 1; SpawnBtn.Text = "🚩"; SpawnBtn.Font = Enum.Font.GothamMedium; SpawnBtn.TextColor3 = Color3.fromRGB(240, 240, 245); SpawnBtn.TextSize = 20; MakeDraggable(SpawnBtnFrame, SpawnBtn)
 local isDraggingSpawn = false; local dragStartPosSpawn
-SpawnBtn.InputBegan:Connect(function(input) 
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then 
-        dragStartPosSpawn = input.Position; isDraggingSpawn = false 
-    end 
-end)
-SpawnBtn.InputChanged:Connect(function(input) 
-    if dragStartPosSpawn and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then 
-        if (input.Position - dragStartPosSpawn).Magnitude > 5 then isDraggingSpawn = true end 
-    end 
-end)
-SpawnBtn.MouseButton1Click:Connect(function() 
-    if isDraggingSpawn then return end
-    setSpawnActive = not setSpawnActive
-    if setSpawnActive and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-        savedSpawnCFrame = lp.Character.HumanoidRootPart.CFrame
-        SpawnBtn.Text = "✅"
-        SendNotify("Hệ Thống", "Đã chốt vị trí hồi sinh!", 2)
-    else
-        setSpawnActive = false
-        savedSpawnCFrame = nil
-        SpawnBtn.Text = "🚩"
-        SendNotify("Hệ Thống", "Đã xóa vị trí hồi sinh!", 2)
-    end
+SpawnBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then dragStartPosSpawn = input.Position; isDraggingSpawn = false end end)
+SpawnBtn.InputChanged:Connect(function(input) if dragStartPosSpawn and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then if (input.Position - dragStartPosSpawn).Magnitude > 5 then isDraggingSpawn = true end end end)
+SpawnBtn.MouseButton1Click:Connect(function() if isDraggingSpawn then return end; setSpawnActive = not setSpawnActive
+    if setSpawnActive and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then savedSpawnCFrame = lp.Character.HumanoidRootPart.CFrame; SpawnBtn.Text = "✅"; SendNotify("Hệ Thống", "Đã chốt vị trí hồi sinh!", 2) else setSpawnActive = false; savedSpawnCFrame = nil; SpawnBtn.Text = "🚩"; SendNotify("Hệ Thống", "Đã xóa vị trí hồi sinh!", 2) end
 end)
 
--- =================== NÚT BACK POS NỔI (TRÒN) ===================
-local BackPosBtnFrame = Instance.new("Frame", ScreenGui)
-BackPosBtnFrame.Size = UDim2.new(0, 42, 0, 42)
-BackPosBtnFrame.Position = UDim2.new(0.5, 28, 0.1, 0) -- Xếp bên phải nút Reset
-BackPosBtnFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
-BackPosBtnFrame.BackgroundTransparency = 0.35
-BackPosBtnFrame.BorderSizePixel = 0
-BackPosBtnFrame.Visible = false 
-Instance.new("UICorner", BackPosBtnFrame).CornerRadius = UDim.new(1, 0)
-ApplyIOSGlassEdge(BackPosBtnFrame)
-
-local BackPosBtn = Instance.new("TextButton", BackPosBtnFrame)
-BackPosBtn.Size = UDim2.new(1, 0, 1, 0)
-BackPosBtn.BackgroundTransparency = 1
-BackPosBtn.Text = "📍"
-BackPosBtn.Font = Enum.Font.GothamMedium
-BackPosBtn.TextColor3 = Color3.fromRGB(240, 240, 245)
-BackPosBtn.TextSize = 20
-MakeDraggable(BackPosBtnFrame, BackPosBtn)
-
+local BackPosBtnFrame = Instance.new("Frame", ScreenGui); BackPosBtnFrame.Size = UDim2.new(0, 42, 0, 42); BackPosBtnFrame.Position = UDim2.new(0.5, 28, 0.1, 0); BackPosBtnFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); BackPosBtnFrame.BackgroundTransparency = 0.35; BackPosBtnFrame.BorderSizePixel = 0; BackPosBtnFrame.Visible = false; Instance.new("UICorner", BackPosBtnFrame).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(BackPosBtnFrame)
+local BackPosBtn = Instance.new("TextButton", BackPosBtnFrame); BackPosBtn.Size = UDim2.new(1, 0, 1, 0); BackPosBtn.BackgroundTransparency = 1; BackPosBtn.Text = "📍"; BackPosBtn.Font = Enum.Font.GothamMedium; BackPosBtn.TextColor3 = Color3.fromRGB(240, 240, 245); BackPosBtn.TextSize = 20; MakeDraggable(BackPosBtnFrame, BackPosBtn)
 local isDraggingBackPos = false; local dragStartPosBackPos
-BackPosBtn.InputBegan:Connect(function(input) 
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then 
-        dragStartPosBackPos = input.Position; isDraggingBackPos = false 
-    end 
-end)
-BackPosBtn.InputChanged:Connect(function(input) 
-    if dragStartPosBackPos and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then 
-        if (input.Position - dragStartPosBackPos).Magnitude > 5 then isDraggingBackPos = true end 
-    end 
-end)
-BackPosBtn.MouseButton1Click:Connect(function() 
-    if isDraggingBackPos then return end
-    backPosActive = not backPosActive
-    if backPosActive and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-        backPosCoord = lp.Character.HumanoidRootPart.CFrame
-        BackPosBtn.Text = "⏪"
-        SendNotify("Hệ Thống", "Đã lưu vị trí Back Pos!", 1.5)
-    else
-        backPosActive = false
-        if backPosCoord and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-            lp.Character.HumanoidRootPart.CFrame = backPosCoord
-            SendNotify("Hệ Thống", "Đã dịch chuyển về vị trí cũ!", 1.5)
-        end
-        BackPosBtn.Text = "📍"
-    end
+BackPosBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then dragStartPosBackPos = input.Position; isDraggingBackPos = false end end)
+BackPosBtn.InputChanged:Connect(function(input) if dragStartPosBackPos and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then if (input.Position - dragStartPosBackPos).Magnitude > 5 then isDraggingBackPos = true end end end)
+BackPosBtn.MouseButton1Click:Connect(function() if isDraggingBackPos then return end; backPosActive = not backPosActive
+    if backPosActive and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then backPosCoord = lp.Character.HumanoidRootPart.CFrame; BackPosBtn.Text = "⏪"; SendNotify("Hệ Thống", "Đã lưu vị trí Back Pos!", 1.5) else backPosActive = false; if backPosCoord and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then lp.Character.HumanoidRootPart.CFrame = backPosCoord; SendNotify("Hệ Thống", "Đã dịch chuyển về vị trí cũ!", 1.5) end; BackPosBtn.Text = "📍" end
 end)
 
--- ==========================================================
-
-local ScrollMain = Instance.new("ScrollingFrame", MainFrame); ScrollMain.Size = UDim2.new(1, 0, 1, -80); ScrollMain.Position = UDim2.new(0, 0, 0, 80); ScrollMain.BackgroundTransparency = 1; ScrollMain.BorderSizePixel = 0; ScrollMain.ScrollBarThickness = 1.5; ScrollMain.CanvasSize = UDim2.new(0, 0, 0, 520)
+local ScrollMain = Instance.new("ScrollingFrame", MainFrame); ScrollMain.Size = UDim2.new(1, 0, 1, -80); ScrollMain.Position = UDim2.new(0, 0, 0, 80); ScrollMain.BackgroundTransparency = 1; ScrollMain.BorderSizePixel = 0; ScrollMain.ScrollBarThickness = 1.5; ScrollMain.CanvasSize = UDim2.new(0, 0, 0, 450)
 local ListMain = Instance.new("UIListLayout", ScrollMain); ListMain.Padding = UDim.new(0, 8); ListMain.HorizontalAlignment = Enum.HorizontalAlignment.Center
 local ScrollESP = Instance.new("ScrollingFrame", MainFrame); ScrollESP.Size = UDim2.new(1, 0, 1, -80); ScrollESP.Position = UDim2.new(0, 0, 0, 80); ScrollESP.BackgroundTransparency = 1; ScrollESP.BorderSizePixel = 0; ScrollESP.ScrollBarThickness = 1.5; ScrollESP.CanvasSize = UDim2.new(0, 0, 0, 300); ScrollESP.Visible = false
 local ListESP = Instance.new("UIListLayout", ScrollESP); ListESP.Padding = UDim.new(0, 8); ListESP.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -295,106 +211,49 @@ for _, v in pairs(moves) do CreateBtn(PadGrid, v[1], function(s) if s then local
 CreateBtn(PadGrid, "Tap Wall", function(s) tapWallActive = s end) 
 
 -- =================== BẢNG LOCATION ===================
-local LocationPad = Instance.new("Frame", ScreenGui)
-LocationPad.Size = UDim2.new(0, 190, 0, 150)
-LocationPad.Position = UDim2.new(0.2, 0, 0.4, 0)
-LocationPad.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
-LocationPad.BackgroundTransparency = 0.35
-LocationPad.Visible = false
-LocationPad.Active = true
-LocationPad.ClipsDescendants = true
-Instance.new("UICorner", LocationPad).CornerRadius = UDim.new(0, 16)
-ApplyIOSGlassEdge(LocationPad)
-MakeDraggable(LocationPad)
-
-local LocMiniBtn = Instance.new("TextButton", LocationPad)
-LocMiniBtn.Size = UDim2.new(0, 28, 0, 28)
-LocMiniBtn.Position = UDim2.new(0, 5, 0, 0)
-LocMiniBtn.BackgroundTransparency = 1
-LocMiniBtn.Text = "▼"
-LocMiniBtn.TextColor3 = IOS_BLUE
-LocMiniBtn.Font = Enum.Font.GothamMedium
-LocMiniBtn.TextSize = 13
-
-local LocTitle = Instance.new("TextLabel", LocationPad)
-LocTitle.Size = UDim2.new(1, -70, 0, 28)
-LocTitle.Position = UDim2.new(0, 35, 0, 0) 
-LocTitle.BackgroundTransparency = 1
-LocTitle.Text = "BẢNG LOCATION"
-LocTitle.TextColor3 = Color3.fromRGB(180, 180, 190)
-LocTitle.Font = Enum.Font.GothamMedium
-LocTitle.TextSize = 10
-LocTitle.TextXAlignment = "Left"
-
-local LocCloseBtn = Instance.new("TextButton", LocationPad)
-LocCloseBtn.Size = UDim2.new(0, 28, 0, 28)
-LocCloseBtn.Position = UDim2.new(1, -30, 0, 0)
-LocCloseBtn.BackgroundTransparency = 1
-LocCloseBtn.Text = "X"
-LocCloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58)
-LocCloseBtn.Font = Enum.Font.GothamBold
-LocCloseBtn.TextSize = 13
-
-local LocContent = Instance.new("Frame", LocationPad)
-LocContent.Size = UDim2.new(1, -12, 1, -34)
-LocContent.Position = UDim2.new(0, 6, 0, 28)
-LocContent.BackgroundTransparency = 1
-local LCL = Instance.new("UIListLayout", LocContent)
-LCL.Padding = UDim.new(0, 6); LCL.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
-LocMiniBtn.MouseButton1Click:Connect(function()
-    local isEx = LocationPad.Size.Y.Offset > 28
-    if isEx then 
-        LocContent.Visible = false
-        LocationPad:TweenSize(UDim2.new(0, 190, 0, 28), "Out", "Quart", 0.3, true)
-        LocMiniBtn.Text = "▶" 
-    else 
-        LocContent.Visible = true
-        LocationPad:TweenSize(UDim2.new(0, 190, 0, 150), "Out", "Quart", 0.3, true)
-        LocMiniBtn.Text = "▼" 
-    end
-end)
-
-LocCloseBtn.MouseButton1Click:Connect(function()
-    LocationPad.Visible = false
-    SendNotify("Hệ Thống", "Đã đóng nhanh Bảng Location", 1.5)
-end)
+local LocationPad = Instance.new("Frame", ScreenGui); LocationPad.Size = UDim2.new(0, 190, 0, 150); LocationPad.Position = UDim2.new(0.2, 0, 0.4, 0); LocationPad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); LocationPad.BackgroundTransparency = 0.35; LocationPad.Visible = false; LocationPad.Active = true; LocationPad.ClipsDescendants = true; Instance.new("UICorner", LocationPad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(LocationPad); MakeDraggable(LocationPad)
+local LocMiniBtn = Instance.new("TextButton", LocationPad); LocMiniBtn.Size = UDim2.new(0, 28, 0, 28); LocMiniBtn.Position = UDim2.new(0, 5, 0, 0); LocMiniBtn.BackgroundTransparency = 1; LocMiniBtn.Text = "▼"; LocMiniBtn.TextColor3 = IOS_BLUE; LocMiniBtn.Font = Enum.Font.GothamMedium; LocMiniBtn.TextSize = 13
+local LocTitle = Instance.new("TextLabel", LocationPad); LocTitle.Size = UDim2.new(1, -70, 0, 28); LocTitle.Position = UDim2.new(0, 35, 0, 0); LocTitle.BackgroundTransparency = 1; LocTitle.Text = "BẢNG LOCATION"; LocTitle.TextColor3 = Color3.fromRGB(180, 180, 190); LocTitle.Font = Enum.Font.GothamMedium; LocTitle.TextSize = 10; LocTitle.TextXAlignment = "Left"
+local LocCloseBtn = Instance.new("TextButton", LocationPad); LocCloseBtn.Size = UDim2.new(0, 28, 0, 28); LocCloseBtn.Position = UDim2.new(1, -30, 0, 0); LocCloseBtn.BackgroundTransparency = 1; LocCloseBtn.Text = "X"; LocCloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58); LocCloseBtn.Font = Enum.Font.GothamBold; LocCloseBtn.TextSize = 13
+local LocContent = Instance.new("Frame", LocationPad); LocContent.Size = UDim2.new(1, -12, 1, -34); LocContent.Position = UDim2.new(0, 6, 0, 28); LocContent.BackgroundTransparency = 1; local LCL = Instance.new("UIListLayout", LocContent); LCL.Padding = UDim.new(0, 6); LCL.HorizontalAlignment = Enum.HorizontalAlignment.Center
+LocMiniBtn.MouseButton1Click:Connect(function() local isEx = LocationPad.Size.Y.Offset > 28; if isEx then LocContent.Visible = false; LocationPad:TweenSize(UDim2.new(0, 190, 0, 28), "Out", "Quart", 0.3, true); LocMiniBtn.Text = "▶" else LocContent.Visible = true; LocationPad:TweenSize(UDim2.new(0, 190, 0, 150), "Out", "Quart", 0.3, true); LocMiniBtn.Text = "▼" end end)
+LocCloseBtn.MouseButton1Click:Connect(function() LocationPad.Visible = false; SendNotify("Hệ Thống", "Đã đóng nhanh Bảng Location", 1.5) end)
 
 CreateBtn(LocContent, "Nhảy Vô Hạn (Inf Jump)", function(s) infJumpActive = s end)
 CreateBtn(LocContent, "Noclip (Xuyên tường Bypass)", function(s) noclipActive = s end)
-
 CreateInput(LocContent, "Tốc độ chạy (1-100)", "", function(val) 
-    if val == "" or tonumber(val) == nil then 
-        currentWalkSpeedLevel = 1
-        SendNotify("Hệ Thống", "Đã xóa số, khôi phục tốc độ Mặc Định", 2)
-    else
-        local num = tonumber(val)
-        local speedLevel = math.clamp(num, 1, 100)
-        currentWalkSpeedLevel = speedLevel
-        SendNotify("Hệ Thống", "Tốc độ Bypass: Mức " .. speedLevel, 1.5) 
-    end 
+    if val == "" or tonumber(val) == nil then currentWalkSpeedLevel = 1; SendNotify("Hệ Thống", "Đã xóa số, khôi phục tốc độ Mặc Định", 2)
+    else local num = tonumber(val); local speedLevel = math.clamp(num, 1, 100); currentWalkSpeedLevel = speedLevel; SendNotify("Hệ Thống", "Tốc độ Bypass: Mức " .. speedLevel, 1.5) end 
 end)
 
---- [[ TÍNH NĂNG TAB CHÍNH ]] ---
+
+--- [[ DANH SÁCH TÍNH NĂNG VÀO TAB CHÍNH ]] ---
+
+-- 1. Bảng Di Chuyển
+CreateBtn(ScrollMain, "Bảng Di Chuyển (Nổi)", function(s) MovePad.Visible = s end)
 CreateInput(ScrollMain, "Tốc độ Bảng Move", tostring(currentSpeed), function(val) 
     local newSp = tonumber(val)
-    if newSp then 
-        currentSpeed = newSp
-        SendNotify("Hệ Thống", "Tốc độ Bảng Di Chuyển: " .. newSp, 2) 
-    end 
+    if newSp then currentSpeed = newSp; SendNotify("Hệ Thống", "Tốc độ Bảng Di Chuyển: " .. newSp, 2) end 
 end)
 
--- Các nút bật tắt UI nổi
-CreateBtn(ScrollMain, "Nút Set Spawn (Tròn)", function(s) SpawnBtnFrame.Visible = s end)
-CreateBtn(ScrollMain, "Nút Back Pos (Tròn)", function(s) BackPosBtnFrame.Visible = s end)
+-- 2. Bảng Location
 CreateBtn(ScrollMain, "Bảng Location (Nổi)", function(s) LocationPad.Visible = s end)
-CreateBtn(ScrollMain, "Bảng Di Chuyển (Nổi)", function(s) MovePad.Visible = s end)
-CreateBtn(ScrollMain, "Nút Reset (Tròn)", function(s) ResetBtnFrame.Visible = s end)
+
+-- 3. Hiện FPS
 CreateBtn(ScrollMain, "Hiển Thị FPS", function(s) fpsActive = s; FpsPill.Visible = s end)
 
+-- 4. Các loại nút nổi (Reset, Set Spawn, Back Pos)
+CreateBtn(ScrollMain, "Nút Reset (Tròn Nổi)", function(s) ResetBtnFrame.Visible = s end)
+CreateBtn(ScrollMain, "Nút Set Spawn (Tròn Nổi)", function(s) SpawnBtnFrame.Visible = s end)
+CreateBtn(ScrollMain, "Nút Back Pos (Tròn Nổi)", function(s) BackPosBtnFrame.Visible = s end)
+
+-- 5. Spin Bot 360
 CreateBtn(ScrollMain, "Spin Bot 360", function(s) spinBotActive = s end)
+
+-- 6. Các chức năng không nhắc tới (để ở cuối)
 CreateBtn(ScrollMain, "Ghost Mode", function(s) ghostActive = s; if s and lp.Character then lockedPos = lp.Character.HumanoidRootPart.CFrame; lp.Character.Archivable = true; ghostModel = lp.Character:Clone(); ghostModel.Name = "VuKhoa_Ghost"; ghostModel.Parent = workspace; for _, v in pairs(ghostModel:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false; v.Transparency = 0.5 end end; workspace.CurrentCamera.CameraSubject = ghostModel:FindFirstChild("Humanoid") elseif ghostModel then ghostModel:Destroy(); workspace.CurrentCamera.CameraSubject = lp.Character.Humanoid end end)
 CreateBtn(ScrollMain, "Ghim Vị Trí", function(s) ghimActive = s; if s and lp.Character then lockedPos = lp.Character.HumanoidRootPart.CFrame end end)
+
 
 --- [[ TÍNH NĂNG TAB ESP ]] ---
 CreateBtn(ScrollESP, "ESP Line (Đường thẳng)", function(s) espLineActive = s end)
@@ -402,8 +261,15 @@ CreateBtn(ScrollESP, "ESP Box (Khung hình)", function(s) espBoxActive = s end)
 CreateBtn(ScrollESP, "ESP Count (Đếm người)", function(s) espCountActive = s; CountPill.Visible = s end)
 CreateBtn(ScrollESP, "Xray Chams (Highlight)", function(s) xrayActive = s end)
 
--- LOGIC ĐÓNG MỞ MENU
-local OpenBtn = Instance.new("ImageButton", ScreenGui); OpenBtn.Size = UDim2.new(0, 55, 0, 55); OpenBtn.Position = UDim2.new(1, -65, 0.5, -27); OpenBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 32); OpenBtn.BackgroundTransparency = 0.3; OpenBtn.Image = ASSET_ID; OpenBtn.Visible = false; Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(OpenBtn); MakeDraggable(OpenBtn)
+-- ================= LOGIC NÚT MỞ MENU MỚI =================
+local OpenBtn = Instance.new("ImageButton", ScreenGui)
+OpenBtn.Size = UDim2.new(0, 50, 0, 50)
+OpenBtn.Position = UDim2.new(1, -65, 0.5, -27)
+OpenBtn.BackgroundTransparency = 1 
+OpenBtn.Image = ASSET_ID
+OpenBtn.Visible = false
+MakeDraggable(OpenBtn)
+
 MiniBtn.MouseButton1Click:Connect(function() local isEx = MainFrame.Size.Y.Offset == 460; if isEx then ScrollMain.Visible = false; ScrollESP.Visible = false; TabBar.Visible = false; MainFrame:TweenSize(UDim2.new(0, 220, 0, 40), "Out", "Quart", 0.35, true); MiniBtn.Text = "▶" else TabBar.Visible = true; if TabMainBtn.TextColor3 == IOS_BLUE then ScrollMain.Visible = true else ScrollESP.Visible = true end; MainFrame:TweenSize(UDim2.new(0, 220, 0, 460), "Out", "Quart", 0.35, true); MiniBtn.Text = "▼" end end)
 local function ToggleMenu() MainFrame.Visible = not MainFrame.Visible; OpenBtn.Visible = not MainFrame.Visible end
 CloseBtn.MouseButton1Click:Connect(ToggleMenu); OpenBtn.MouseButton1Click:Connect(ToggleMenu)
@@ -426,16 +292,12 @@ uis.InputBegan:Connect(function(input, gpe)
 end)
 uis.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch then activeTouches[input] = nil end end)
 
--- ESP CACHE
 local function getESP(p) if not espCache[p] then local data = {}; data.Box = Instance.new("Frame", ESPLayer); data.Box.BackgroundTransparency = 1; data.Box.Visible = false; local st = Instance.new("UIStroke", data.Box); st.Color = IOS_BLUE; st.Thickness = 1.5; data.Line = Instance.new("Frame", ESPLayer); data.Line.BackgroundColor3 = IOS_BLUE; data.Line.BorderSizePixel = 0; data.Line.AnchorPoint = Vector2.new(0.5, 0.5); data.Line.Visible = false; espCache[p] = data end return espCache[p] end
 
--- [[ VÒNG LẶP VẬT LÝ DÀNH CHO NOCLIP BYPASS CẬP NHẬT MỚI ]]
 runService.Stepped:Connect(function()
     if noclipActive and lp.Character then
         for _, v in pairs(lp.Character:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.CanCollide = false
-            end
+            if v:IsA("BasePart") then v.CanCollide = false end
         end
     end
 end)
@@ -452,21 +314,16 @@ runService.RenderStepped:Connect(function(dt)
     local hum = char:FindFirstChild("Humanoid")
     if hum then
         if hum.WalkSpeed < 16 then hum.WalkSpeed = 16 end
-        
         if currentWalkSpeedLevel > 1 and localMoveDir.Magnitude == 0 and hum.MoveDirection.Magnitude > 0 then
             local speedMultiplier = (currentWalkSpeedLevel - 1) * 0.4
             root.CFrame = root.CFrame + (hum.MoveDirection * speedMultiplier)
         end
-        
         if hum.JumpPower < 50 then hum.JumpPower = 50 end
         hum.Sit = false
-        
         if not noclipActive then
             hum.PlatformStand = false
             local st = hum:GetState()
-            if st == Enum.HumanoidStateType.Ragdoll or st == Enum.HumanoidStateType.FallingDown or st == Enum.HumanoidStateType.Physics then 
-                hum:ChangeState(Enum.HumanoidStateType.GettingUp) 
-            end
+            if st == Enum.HumanoidStateType.Ragdoll or st == Enum.HumanoidStateType.FallingDown or st == Enum.HumanoidStateType.Physics then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end
         end
     end
     
@@ -503,7 +360,6 @@ runService.RenderStepped:Connect(function(dt)
     if espCountActive then CountLabel.Text = "Địch: " .. pCount end
 end)
 
--- LOGIC AUTO SET SPAWN KHI HỒI SINH
 lp.CharacterAdded:Connect(function(newChar)
     if setSpawnActive and savedSpawnCFrame then
         newChar:WaitForChild("HumanoidRootPart", 5)

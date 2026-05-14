@@ -1,0 +1,769 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local VirtualUser = game:GetService("VirtualUser")
+local TeleportService = game:GetService("TeleportService")
+
+local player = Players.LocalPlayer
+while not player do task.wait(0.1); player = Players.LocalPlayer end
+local mouse = player:GetMouse()
+
+local c_bg = Color3.fromRGB(15, 16, 25)
+local c_side = Color3.fromRGB(11, 12, 20)
+local c_pink = Color3.fromRGB(224, 43, 137)
+local c_card = Color3.fromRGB(22, 23, 33)
+local c_text = Color3.fromRGB(240, 240, 240)
+local c_sub = Color3.fromRGB(150, 150, 160)
+
+local Cfg = {
+    Language = "VN",
+    Master = false, 
+    AutoFire = false, FireMethod = "Tool (Safe)", FireDelay = 20, 
+    AimLock = false, AimMagnet = false, AimKill = false,
+    Hitbox = false, HitboxSize = 50, FOVShow = false, FOVSize = 150, FOV360 = false,
+    Part = "Head", TeamCheck = false, WallCheck = false,
+    ESPBox = "Tắt / Off", ESPTracer = false, ESPHeal = false, EnemyCount = false,
+    Spin = false, SpinSpeed = 180, AntiAim = false, ThirdPerson = false, HideSelf = false,
+    UpPlayer = false, UpHeight = 10
+}
+
+local LangData = { labels = {}, buttons = {}, toggles = {}, tabs = {}, headers = {} }
+
+local function UpdateLang()
+    local isVN = (Cfg.Language == "VN")
+    for _, it in ipairs(LangData.labels) do
+        it.l.Text = isVN and it.v or it.e
+    end
+    for _, it in ipairs(LangData.buttons) do
+        if it.update then it.update() else it.l.Text = isVN and it.v or it.e end
+    end
+    for _, it in ipairs(LangData.toggles) do
+        local base = isVN and it.v or it.e
+        local stateOn = isVN and " [BẬT]" or " [ON]"
+        local stateOff = isVN and " [TẮT]" or " [OFF]"
+        it.l.Text = base .. (Cfg[it.flag] and stateOn or stateOff)
+    end
+    for _, it in ipairs(LangData.tabs) do
+        it.l.Text = isVN and it.v or it.e
+    end
+    for _, it in ipairs(LangData.headers) do
+        it.t.Text = isVN and it.tv or it.te
+        it.d.Text = isVN and it.dv or it.de
+    end
+end
+
+local parentObj = pcall(function() return gethui() end) and gethui() or (pcall(function() return CoreGui end) and CoreGui or player:WaitForChild("PlayerGui"))
+if parentObj:FindFirstChild("StemmerX_Final") then parentObj.StemmerX_Final:Destroy() end
+
+local sg = Instance.new("ScreenGui")
+sg.Name = "StemmerX_Final"
+sg.ResetOnSpawn = false
+sg.IgnoreGuiInset = true 
+sg.Parent = parentObj
+
+local function SendNotify(featureName, state)
+    if getgenv and getgenv().Notification then
+        getgenv().Notification(featureName, state and (Cfg.Language == "VN" and "Đã Bật" or "Enabled") or (Cfg.Language == "VN" and "Đã Tắt" or "Disabled"))
+    end
+end
+
+local fovCircle = Instance.new("Frame", sg)
+fovCircle.BackgroundTransparency = 1; fovCircle.Visible = false
+local fovStroke = Instance.new("UIStroke", fovCircle)
+fovStroke.Color = c_pink; fovStroke.Thickness = 1.2
+Instance.new("UICorner", fovCircle).CornerRadius = UDim.new(1, 0)
+
+local enemyCountLbl = Instance.new("TextLabel", sg)
+enemyCountLbl.Size = UDim2.new(0, 180, 0, 30)
+enemyCountLbl.Position = UDim2.new(0.5, -90, 0, 20)
+enemyCountLbl.BackgroundTransparency = 0.2
+enemyCountLbl.BackgroundColor3 = c_bg
+enemyCountLbl.TextColor3 = c_pink
+enemyCountLbl.Font = Enum.Font.GothamBold
+enemyCountLbl.TextSize = 13
+enemyCountLbl.Visible = false
+Instance.new("UICorner", enemyCountLbl).CornerRadius = UDim.new(0, 6)
+local countStroke = Instance.new("UIStroke", enemyCountLbl)
+countStroke.Color = c_pink; countStroke.Thickness = 1.2
+
+local main = Instance.new("Frame", sg)
+main.Size = UDim2.new(0, 580, 0, 420)
+main.Position = UDim2.new(0.5, -290, 0.5, -210)
+main.BackgroundColor3 = c_bg
+main.Active = true; main.Draggable = true; main.ClipsDescendants = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
+
+local toggleBtn = Instance.new("TextButton", sg)
+toggleBtn.Size = UDim2.new(0, 45, 0, 45)
+toggleBtn.Position = UDim2.new(0, 20, 0, 100)
+toggleBtn.BackgroundColor3 = c_card
+toggleBtn.Text = "⚙"
+toggleBtn.TextColor3 = c_pink
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextSize = 26
+toggleBtn.Active = true
+toggleBtn.Draggable = true
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
+local toggleStroke = Instance.new("UIStroke", toggleBtn)
+toggleStroke.Color = c_pink
+toggleStroke.Thickness = 1.5
+
+toggleBtn.MouseButton1Click:Connect(function()
+    main.Visible = not main.Visible
+end)
+
+local sidebar = Instance.new("Frame", main)
+sidebar.Size = UDim2.new(0, 130, 1, 0)
+sidebar.BackgroundColor3 = c_side; sidebar.BorderSizePixel = 0
+local sideList = Instance.new("UIListLayout", sidebar)
+sideList.Padding = UDim.new(0, 10); sideList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+Instance.new("UIPadding", sidebar).PaddingTop = UDim.new(0, 20)
+
+local content = Instance.new("Frame", main)
+content.Size = UDim2.new(1, -130, 1, 0); content.Position = UDim2.new(0, 130, 0, 0)
+content.BackgroundTransparency = 1
+
+local pages, tabBtns = {}, {}
+
+local function CreateHeader(page, titleVN, titleEN, descVN, descEN)
+    local hBg = Instance.new("Frame", page)
+    hBg.Size = UDim2.new(1, -20, 0, 40); hBg.BackgroundColor3 = c_card
+    Instance.new("UICorner", hBg).CornerRadius = UDim.new(0, 10)
+    local icon = Instance.new("TextLabel", hBg)
+    icon.Size = UDim2.new(0, 30, 1, 0); icon.BackgroundTransparency = 1; icon.Text = "⌖"; icon.TextColor3 = c_pink; icon.Font = Enum.Font.GothamBold; icon.TextSize = 18
+    local titleLbl = Instance.new("TextLabel", hBg)
+    titleLbl.Size = UDim2.new(0, 60, 1, 0); titleLbl.Position = UDim2.new(0, 30, 0, 0); titleLbl.BackgroundTransparency = 1; titleLbl.TextColor3 = c_pink; titleLbl.Font = Enum.Font.GothamBold; titleLbl.TextSize = 12; titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+    local descLbl = Instance.new("TextLabel", hBg)
+    descLbl.Size = UDim2.new(1, -110, 1, 0); descLbl.Position = UDim2.new(0, 105, 0, 0); descLbl.BackgroundTransparency = 1; descLbl.TextColor3 = c_text; descLbl.Font = Enum.Font.Gotham; descLbl.TextSize = 12; descLbl.TextXAlignment = Enum.TextXAlignment.Left
+    
+    titleLbl.Text = Cfg.Language == "VN" and titleVN or titleEN
+    descLbl.Text = Cfg.Language == "VN" and descVN or descEN
+    table.insert(LangData.headers, {t = titleLbl, tv = titleVN, te = titleEN, d = descLbl, dv = descVN, de = descEN})
+end
+
+local function CreatePage(id, titleVN, titleEN, descVN, descEN)
+    local p = Instance.new("ScrollingFrame", content)
+    p.Size = UDim2.new(1, 0, 1, -20); p.Position = UDim2.new(0, 0, 0, 10)
+    p.BackgroundTransparency = 1; p.Visible = false
+    p.ScrollBarThickness = 4; p.ScrollBarImageColor3 = c_pink
+    p.AutomaticCanvasSize = Enum.AutomaticSize.Y; p.CanvasSize = UDim2.new(0, 0, 0, 0)
+    local list = Instance.new("UIListLayout", p)
+    list.Padding = UDim.new(0, 10); list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    Instance.new("UIPadding", p).PaddingTop = UDim.new(0, 10); Instance.new("UIPadding", p).PaddingBottom = UDim.new(0, 10)
+    CreateHeader(p, titleVN, titleEN, descVN, descEN)
+    pages[id] = p; return p
+end
+
+local function AddTab(id, textVN, textEN, iconTxt)
+    local btn = Instance.new("TextButton", sidebar)
+    btn.Size = UDim2.new(1, 0, 0, 50); btn.BackgroundTransparency = 1; btn.Text = ""
+    local icon = Instance.new("TextLabel", btn)
+    icon.Size = UDim2.new(1, 0, 0, 25); icon.Position = UDim2.new(0, 0, 0, 5); icon.BackgroundTransparency = 1; icon.Text = iconTxt; icon.TextColor3 = c_sub; icon.Font = Enum.Font.GothamBold; icon.TextSize = 16
+    local lbl = Instance.new("TextLabel", btn)
+    lbl.Size = UDim2.new(1, 0, 0, 20); lbl.Position = UDim2.new(0, 0, 0, 25); lbl.BackgroundTransparency = 1; lbl.TextColor3 = c_sub; lbl.Font = Enum.Font.Gotham; lbl.TextSize = 12
+    lbl.Text = Cfg.Language == "VN" and textVN or textEN
+    table.insert(LangData.tabs, {l = lbl, v = textVN, e = textEN})
+    
+    local ind = Instance.new("Frame", btn)
+    ind.Size = UDim2.new(0, 3, 0, 25); ind.Position = UDim2.new(1, -3, 0.5, -12); ind.BackgroundColor3 = c_pink; ind.BorderSizePixel = 0; ind.Visible = false
+    tabBtns[id] = {b = btn, ic = icon, l = lbl, i = ind}
+
+    btn.MouseButton1Click:Connect(function()
+        for k, v in pairs(pages) do v.Visible = (k == id) end
+        for k, v in pairs(tabBtns) do
+            local active = (k == id)
+            v.ic.TextColor3 = active and c_text or c_sub
+            v.l.TextColor3 = active and c_text or c_sub
+            v.i.Visible = active
+        end
+    end)
+end
+
+local function AddCheckbox(page, textVN, textEN, flag, callback)
+    local f = Instance.new("Frame", page)
+    f.Size = UDim2.new(1, -20, 0, 30); f.BackgroundTransparency = 1
+    local btn = Instance.new("TextButton", f)
+    btn.Size = UDim2.new(0, 20, 0, 20); btn.Position = UDim2.new(0, 10, 0.5, -10); btn.BackgroundColor3 = c_card; btn.Text = ""
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
+    local check = Instance.new("TextLabel", btn)
+    check.Size = UDim2.new(1, 0, 1, 0); check.BackgroundTransparency = 1; check.Text = "✔"; check.TextColor3 = Color3.new(1,1,1); check.Font = Enum.Font.GothamBold; check.TextSize = 12; check.Visible = Cfg[flag]
+    local lbl = Instance.new("TextLabel", f)
+    lbl.Size = UDim2.new(1, -50, 1, 0); lbl.Position = UDim2.new(0, 40, 0, 0); lbl.BackgroundTransparency = 1; lbl.TextColor3 = c_text; lbl.Font = Enum.Font.Gotham; lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
+    
+    lbl.Text = Cfg.Language == "VN" and textVN or textEN
+    table.insert(LangData.labels, {l = lbl, v = textVN, e = textEN})
+    
+    local overlay = Instance.new("TextButton", f)
+    overlay.Size = UDim2.new(1, 0, 1, 0); overlay.BackgroundTransparency = 1; overlay.Text = ""
+
+    overlay.MouseButton1Click:Connect(function()
+        Cfg[flag] = not Cfg[flag]
+        btn.BackgroundColor3 = Cfg[flag] and c_pink or c_card
+        check.Visible = Cfg[flag]
+        SendNotify(Cfg.Language == "VN" and textVN or textEN, Cfg[flag])
+        if callback then callback(Cfg[flag]) end
+    end)
+end
+
+local function AddToggleButton(page, textVN, textEN, flag, callback)
+    local f = Instance.new("Frame", page)
+    f.Size = UDim2.new(1, -20, 0, 40); f.BackgroundTransparency = 1
+    local btn = Instance.new("TextButton", f)
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundColor3 = Cfg[flag] and c_pink or c_card
+    
+    local baseText = Cfg.Language == "VN" and textVN or textEN
+    local stateText = Cfg[flag] and (Cfg.Language == "VN" and " [BẬT]" or " [ON]") or (Cfg.Language == "VN" and " [TẮT]" or " [OFF]")
+    btn.Text = baseText .. stateText
+    table.insert(LangData.toggles, {l = btn, v = textVN, e = textEN, flag = flag})
+    
+    btn.TextColor3 = Color3.new(1,1,1); btn.Font = Enum.Font.GothamBold; btn.TextSize = 13
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
+    
+    btn.MouseButton1Click:Connect(function()
+        Cfg[flag] = not Cfg[flag]
+        btn.BackgroundColor3 = Cfg[flag] and c_pink or c_card
+        local isVN = Cfg.Language == "VN"
+        btn.Text = (isVN and textVN or textEN) .. (Cfg[flag] and (isVN and " [BẬT]" or " [ON]") or (isVN and " [TẮT]" or " [OFF]"))
+        SendNotify(isVN and textVN or textEN, Cfg[flag])
+        if callback then callback(Cfg[flag]) end
+    end)
+end
+
+local function AddDropdown(page, textVN, textEN, flag, options, callback)
+    local idx = 1; Cfg[flag] = options[idx]
+    local f = Instance.new("Frame", page)
+    f.Size = UDim2.new(1, -20, 0, 60); f.BackgroundTransparency = 1
+    local lbl = Instance.new("TextLabel", f)
+    lbl.Size = UDim2.new(1, -20, 0, 20); lbl.Position = UDim2.new(0, 10, 0, 0); lbl.BackgroundTransparency = 1; lbl.TextColor3 = c_text; lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
+    
+    lbl.Text = Cfg.Language == "VN" and textVN or textEN
+    table.insert(LangData.labels, {l = lbl, v = textVN, e = textEN})
+    
+    local btn = Instance.new("TextButton", f)
+    btn.Size = UDim2.new(1, -20, 0, 35); btn.Position = UDim2.new(0, 10, 0, 25); btn.BackgroundColor3 = c_card; btn.Text = "   " .. tostring(options[idx]); btn.TextColor3 = c_sub; btn.Font = Enum.Font.Gotham; btn.TextSize = 13; btn.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+    local arrow = Instance.new("TextLabel", btn)
+    arrow.Size = UDim2.new(0, 30, 1, 0); arrow.Position = UDim2.new(1, -30, 0, 0); arrow.BackgroundTransparency = 1; arrow.Text = "v"; arrow.TextColor3 = c_sub; arrow.Font = Enum.Font.GothamBold
+
+    btn.MouseButton1Click:Connect(function()
+        idx = idx + 1; if idx > #options then idx = 1 end
+        Cfg[flag] = options[idx]; btn.Text = "   " .. tostring(options[idx])
+        if callback then callback(Cfg[flag]) end
+    end)
+end
+
+local function AddSlider(page, textVN, textEN, min, max, default, flag)
+    Cfg[flag] = default
+    local f = Instance.new("Frame", page)
+    f.Size = UDim2.new(1, -20, 0, 60); f.BackgroundTransparency = 1
+    local lbl = Instance.new("TextLabel", f)
+    lbl.Size = UDim2.new(1, -60, 0, 20); lbl.Position = UDim2.new(0, 10, 0, 0); lbl.BackgroundTransparency = 1; lbl.TextColor3 = c_text; lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
+    
+    lbl.Text = Cfg.Language == "VN" and textVN or textEN
+    table.insert(LangData.labels, {l = lbl, v = textVN, e = textEN})
+    
+    local valLbl = Instance.new("TextLabel", f)
+    valLbl.Size = UDim2.new(0, 40, 0, 20); valLbl.Position = UDim2.new(1, -50, 0, 0); valLbl.BackgroundTransparency = 1; valLbl.Text = default; valLbl.TextColor3 = c_pink; valLbl.Font = Enum.Font.GothamBold; valLbl.TextSize = 13; valLbl.TextXAlignment = Enum.TextXAlignment.Right
+    local bg = Instance.new("TextButton", f)
+    bg.Size = UDim2.new(1, -20, 0, 8); bg.Position = UDim2.new(0, 10, 0, 35); bg.BackgroundColor3 = c_card; bg.Text = ""; bg.AutoButtonColor = false
+    Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
+    local fill = Instance.new("Frame", bg)
+    fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0); fill.BackgroundColor3 = c_pink
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+
+    local drag = false
+    bg.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then drag = true end end)
+    UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then drag = false end end)
+    UserInputService.InputChanged:Connect(function(i)
+        if drag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local pos = math.clamp((i.Position.X - bg.AbsolutePosition.X) / bg.AbsoluteSize.X, 0, 1)
+            fill.Size = UDim2.new(pos, 0, 1, 0); local val = math.floor(min + (max - min) * pos)
+            valLbl.Text = val; Cfg[flag] = val
+        end
+    end)
+end
+
+local function AddButton(page, textVN, textEN, callback)
+    local f = Instance.new("Frame", page)
+    f.Size = UDim2.new(1, -20, 0, 40); f.BackgroundTransparency = 1
+    local btn = Instance.new("TextButton", f)
+    btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundColor3 = c_pink
+    
+    btn.Text = Cfg.Language == "VN" and textVN or textEN
+    table.insert(LangData.buttons, {l = btn, v = textVN, e = textEN})
+    
+    btn.TextColor3 = Color3.new(1,1,1); btn.Font = Enum.Font.GothamBold; btn.TextSize = 13
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
+    btn.MouseButton1Click:Connect(function() if callback then callback() end end)
+end
+
+local OrigTrans = {}
+local OrigHitboxData = {}
+
+local function RevertLocalPlayer()
+    pcall(function()
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            local h = player.Character.Humanoid
+            h.AutoRotate = true
+            h.CameraOffset = Vector3.new(0,0,0)
+        end
+        if player.Character then
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then 
+                local bav = hrp:FindFirstChild("SpinBotBav")
+                if bav then bav:Destroy() end
+            end
+            
+            local joint = hrp and hrp:FindFirstChild("RootJoint")
+            if not joint and player.Character:FindFirstChild("LowerTorso") then
+                joint = player.Character.LowerTorso:FindFirstChild("Root")
+            end
+            if joint and OrigTrans["RootJointC0"] then
+                joint.C0 = OrigTrans["RootJointC0"]
+            end
+            
+            for _, v in pairs(player.Character:GetDescendants()) do
+                if OrigTrans[v] then v.Transparency = OrigTrans[v] end
+            end
+        end
+        player.CameraMode = Enum.CameraMode.Classic
+        player.CameraMinZoomDistance = 0.5; player.CameraMaxZoomDistance = 400
+    end)
+end
+
+local function RevertAllEnemies()
+    pcall(function()
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character then
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                if hrp and OrigHitboxData[hrp] then
+                    hrp.Size = OrigHitboxData[hrp].Size
+                    hrp.Transparency = OrigHitboxData[hrp].Trans
+                    hrp.CanCollide = OrigHitboxData[hrp].Collide
+                    hrp.Massless = OrigHitboxData[hrp].Massless
+                    OrigHitboxData[hrp] = nil
+                end
+                if hrp then hrp.AssemblyLinearVelocity = Vector3.new(0,0,0) end
+            end
+        end
+    end)
+end
+
+local function MasterRevert()
+    RevertLocalPlayer()
+    RevertAllEnemies()
+    fovCircle.Visible = false
+    enemyCountLbl.Visible = false
+end
+
+if getgenv and hookmetamethod then
+    pcall(function()
+        local oldNamecall
+        oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+            local method = getnamecallmethod()
+            if not checkcaller() and self == player and (method == "Kick" or method == "kick") then
+                return nil
+            end
+            return oldNamecall(self, ...)
+        end)
+    end)
+end
+
+local lastActive = tick()
+UserInputService.InputBegan:Connect(function() lastActive = tick() end)
+RunService.Stepped:Connect(function()
+    if tick() - lastActive > 20 then
+        lastActive = tick() + 9999 
+        pcall(function() TeleportService:Teleport(game.PlaceId, player) end)
+    end
+end)
+
+local pAim = CreatePage("aim", "AIMBOT & AUTO", "AIMBOT & AUTO", "Hệ thống ngắm bắn và tự động.", "Aiming and automation system.")
+local pEsp = CreatePage("esp", "HIỂN THỊ", "VISUALS", "Hệ thống định vị mục tiêu.", "Target locating system.")
+local pMisc = CreatePage("misc", "KHÁC & BAY", "MISC & TELEPORT", "Cấu hình nhân vật & Môi trường.", "Character & Environment config.")
+local pSettings = CreatePage("settings", "CÀI ĐẶT", "SETTINGS", "Cấu hình ngôn ngữ menu.", "Menu language configuration.")
+
+AddTab("aim", "Aimbot", "Aimbot", "⌖"); AddTab("esp", "Visuals", "Visuals", "👁"); AddTab("misc", "Misc", "Misc", "🛠"); AddTab("settings", "Cài Đặt", "Settings", "⚙")
+tabBtns["aim"].ic.TextColor3 = c_text; tabBtns["aim"].l.TextColor3 = c_text; tabBtns["aim"].i.Visible = true; pages["aim"].Visible = true
+
+local closeBtn = Instance.new("TextButton", main)
+closeBtn.Size = UDim2.new(0, 30, 0, 30); closeBtn.Position = UDim2.new(1, -35, 0, 5)
+closeBtn.BackgroundTransparency = 1; closeBtn.Text = "✖"; closeBtn.TextColor3 = c_sub
+closeBtn.Font = Enum.Font.GothamBold; closeBtn.TextSize = 14
+closeBtn.MouseButton1Click:Connect(function() main.Visible = false end)
+
+AddDropdown(pSettings, "Ngôn Ngữ / Language", "Language / Ngôn Ngữ", "Language", {"VN", "EN"}, function()
+    UpdateLang()
+end)
+
+AddCheckbox(pAim, "★ Master (Bật tổng)", "★ Master (Enable All)", "Master", function(s) if not s then MasterRevert() end end)
+AddToggleButton(pAim, "Auto Fire (Tự động bắn)", "Auto Fire (Shoot Target)", "AutoFire")
+AddDropdown(pAim, "Kiểu Auto Fire", "Auto Fire Method", "FireMethod", {"Tool (Safe)", "VirtualUser (Smooth)", "Mouse (Hack)"})
+AddSlider(pAim, "Delay Auto Fire (10 = 1s)", "Auto Fire Delay (10 = 1s)", 1, 50, 20, "FireDelay") 
+AddToggleButton(pAim, "Aimbot Lock Camera", "Aimbot Lock Camera", "AimLock")
+AddToggleButton(pAim, "Aim Magnet (Hút địch trước mặt)", "Aim Magnet (Pull Enemy)", "AimMagnet")
+AddToggleButton(pAim, "Aim Kill (Tốc Biến)", "Aim Kill (Teleport)", "AimKill")
+
+AddCheckbox(pAim, "Silent Aim (Mở Rộng Hitbox)", "Silent Aim (Expand Hitbox)", "Hitbox", function(s) if not s then RevertAllEnemies() end end)
+AddSlider(pAim, "Kích thước Silent Aim (Max 50)", "Silent Aim Size (Max 50)", 5, 50, 50, "HitboxSize") 
+
+AddCheckbox(pAim, "Hiện vòng FOV", "Show FOV Circle", "FOVShow")
+AddSlider(pAim, "Kích thước FOV", "FOV Size", 50, 800, 150, "FOVSize")
+AddCheckbox(pAim, "FOV 360 (Bắn toàn map)", "FOV 360 (Whole Map)", "FOV360")
+AddDropdown(pAim, "Mục tiêu (Part)", "Target Part", "Part", {"Head", "HumanoidRootPart"})
+AddCheckbox(pAim, "Team Check (Lọc Đồng Đội)", "Team Check (Filter Teammates)", "TeamCheck")
+AddCheckbox(pAim, "Wall Check (Xuyên Tường)", "Wall Check (Ignore Walls)", "WallCheck")
+
+AddDropdown(pEsp, "Loại Box (Khung ESP)", "Box Type (ESP)", "ESPBox", {"Tắt / Off", "Corner", "Full"})
+AddCheckbox(pEsp, "Tracer (Tia vị trí)", "Tracer (Position Line)", "ESPTracer")
+AddCheckbox(pEsp, "Health Bar (Thanh Máu)", "Health Bar", "ESPHeal")
+AddCheckbox(pEsp, "Enemy Count (Đếm Địch)", "Enemy Count", "EnemyCount")
+
+AddCheckbox(pMisc, "Up Player (Nâng Camera & Kéo Địch)", "Up Player (Raise Camera & Pull)", "UpPlayer", function(s) if not s then RevertLocalPlayer(); RevertAllEnemies() end end)
+AddSlider(pMisc, "Độ cao Up Player", "Up Player Height", 1, 100, 10, "UpHeight")
+AddCheckbox(pMisc, "Anti-Aim (Di chuyển ảo lừa đạn)", "Anti-Aim (Fake Movement)", "AntiAim", function(s) if not s then RevertLocalPlayer() end end)
+AddCheckbox(pMisc, "Spin Bot FE (Xoay 360 thực sự)", "Spin Bot FE (Real 360 Spin)", "Spin", function(s) if not s then RevertLocalPlayer() end end)
+AddSlider(pMisc, "Tốc độ Spin Bot", "Spin Bot Speed", 10, 500, 180, "SpinSpeed")
+AddCheckbox(pMisc, "Third Person (Góc nhìn 3)", "Third Person View", "ThirdPerson", function(s) if not s then RevertLocalPlayer() end end)
+AddCheckbox(pMisc, "Hide Self (Tàng hình bản thân)", "Hide Self (Invisible)", "HideSelf", function(s) if not s then RevertLocalPlayer() end end)
+
+local teleTargetName = ""
+local function AddPlayerSelector(page)
+    local f = Instance.new("Frame", page)
+    f.Size = UDim2.new(1, -20, 0, 60); f.BackgroundTransparency = 1
+    local lbl = Instance.new("TextLabel", f)
+    lbl.Size = UDim2.new(1, -20, 0, 20); lbl.Position = UDim2.new(0, 10, 0, 0); lbl.BackgroundTransparency = 1; lbl.TextColor3 = c_text; lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
+    
+    lbl.Text = Cfg.Language == "VN" and "Chọn người chơi để Teleport" or "Select Player to Teleport"
+    table.insert(LangData.labels, {l = lbl, v = "Chọn người chơi để Teleport", e = "Select Player to Teleport"})
+    
+    local btn = Instance.new("TextButton", f)
+    btn.Size = UDim2.new(1, -20, 0, 35); btn.Position = UDim2.new(0, 10, 0, 25); btn.BackgroundColor3 = c_card; btn.TextColor3 = c_sub; btn.Font = Enum.Font.Gotham; btn.TextSize = 13; btn.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
+
+    local currentIdx = 0
+    local currState = "none"
+    local function updateBtnText()
+        local isVN = Cfg.Language == "VN"
+        if currState == "none" then
+            btn.Text = isVN and "   [Bấm để Chọn]" or "   [Click to Select]"
+        elseif currState == "empty" then
+            btn.Text = isVN and "   Không có ai" or "   Nobody"
+        else
+            btn.Text = "   " .. teleTargetName
+        end
+    end
+    table.insert(LangData.buttons, {l = btn, update = updateBtnText})
+    updateBtnText()
+
+    btn.MouseButton1Click:Connect(function()
+        local pls = Players:GetPlayers()
+        local list = {}
+        for _, p in ipairs(pls) do if p ~= player then table.insert(list, p.Name) end end
+        if #list == 0 then currState = "empty"; teleTargetName = ""; updateBtnText(); return end
+        currentIdx = currentIdx + 1; if currentIdx > #list then currentIdx = 1 end
+        teleTargetName = list[currentIdx]; currState = "player"; updateBtnText()
+    end)
+end
+
+AddPlayerSelector(pMisc)
+AddButton(pMisc, "🚀 BAY ĐẾN NGƯỜI CHƠI NÀY", "🚀 TELEPORT TO THIS PLAYER", function()
+    if teleTargetName ~= "" then
+        local tgt = Players:FindFirstChild(teleTargetName)
+        if tgt and tgt.Character and tgt.Character:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = tgt.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 4)
+        end
+    end
+end)
+
+local isShooting = false; local lockedTarget = nil; local sharedTarget = nil
+
+UserInputService.InputBegan:Connect(function(i, gp) if not gp and (i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch) then isShooting = true end end)
+UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then isShooting = false; lockedTarget = nil end end)
+
+local function IsVis(part, cam)
+    if not Cfg.WallCheck then return true end
+    local ray = RaycastParams.new(); ray.FilterDescendantsInstances = {player.Character, cam}; ray.FilterType = Enum.RaycastFilterType.Exclude
+    local c = Workspace:Raycast(cam.CFrame.Position, part.Position - cam.CFrame.Position, ray)
+    return not c or c.Instance:IsDescendantOf(part.Parent)
+end
+
+local function IsKillable(p, cam)
+    if not p or not p.Character then return false end
+    local hum = p.Character:FindFirstChild("Humanoid"); local part = p.Character:FindFirstChild(Cfg.Part)
+    if not hum or hum.Health <= 0 or not part then return false end
+    if p.Character:FindFirstChildOfClass("ForceField") then return false end
+    if Cfg.TeamCheck and p.Team == player.Team then return false end
+    if not IsVis(part, cam) then return false end
+    return true
+end
+
+local function GetTargetInFOV()
+    local target, shortest = nil, Cfg.FOVSize / 2
+    local cam = Workspace.CurrentCamera; if not cam then return nil end
+    local myChar = player.Character; local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player and IsKillable(p, cam) then
+            local part = p.Character:FindFirstChild(Cfg.Part)
+            if part then
+                local pos, vis = cam:WorldToViewportPoint(part.Position)
+                if vis or Cfg.FOV360 then
+                    local mag = (Vector2.new(pos.X, pos.Y) - Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)).Magnitude
+                    if Cfg.FOV360 and myHRP then 
+                        mag = (myHRP.Position - part.Position).Magnitude 
+                    end
+                    if mag < shortest then shortest = mag; target = p end
+                end
+            end
+        end
+    end
+    return target
+end
+
+local lastAutoFire = 0
+RunService.Heartbeat:Connect(function()
+    if not Cfg.Master then return end
+    local myChar = player.Character; if not myChar then return end
+
+    pcall(function()
+        local h = myChar:FindFirstChild("Humanoid"); local hrp = myChar:FindFirstChild("HumanoidRootPart")
+        if h and hrp then
+            local myPos = hrp.Position
+            
+            if Cfg.UpPlayer then
+                h.CameraOffset = Vector3.new(0, Cfg.UpHeight, 0)
+            else
+                h.CameraOffset = Vector3.new(0, 0, 0)
+            end
+            
+            local joint = hrp:FindFirstChild("RootJoint")
+            if not joint and myChar:FindFirstChild("LowerTorso") then
+                joint = myChar.LowerTorso:FindFirstChild("Root")
+            end
+            
+            if joint then
+                if not OrigTrans["RootJointC0"] then OrigTrans["RootJointC0"] = joint.C0 end
+                local newC0 = OrigTrans["RootJointC0"]
+
+                if Cfg.AntiAim then
+                    newC0 = newC0 * CFrame.Angles(math.rad(math.random(-50,50)), math.rad(math.random(-180,180)), math.rad(math.random(-50,50)))
+                end
+                
+                joint.C0 = newC0
+            end
+
+            if Cfg.ThirdPerson then 
+                player.CameraMode = Enum.CameraMode.Classic; player.CameraMinZoomDistance = 15; player.CameraMaxZoomDistance = 15 
+            else 
+                player.CameraMinZoomDistance = 0.5; player.CameraMaxZoomDistance = 400 
+            end
+
+            if Cfg.HideSelf then for _, v in pairs(myChar:GetDescendants()) do if (v:IsA("BasePart") or v:IsA("Decal")) and v.Name ~= "HumanoidRootPart" then if not OrigTrans[v] then OrigTrans[v] = v.Transparency end; v.Transparency = 1 end end end
+            
+            if Cfg.UpPlayer then
+                local targetY = myPos.Y + Cfg.UpHeight
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        if not (Cfg.AimMagnet and (isShooting or Cfg.AutoFire) and p == sharedTarget) then
+                            local eHRP = p.Character.HumanoidRootPart
+                            eHRP.CFrame = CFrame.new(eHRP.Position.X, targetY, eHRP.Position.Z)
+                            eHRP.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                        end
+                    end
+                end
+            end
+            
+            if Cfg.Spin then
+                h.AutoRotate = false
+                local bav = hrp:FindFirstChild("SpinBotBav")
+                if not bav then
+                    bav = Instance.new("BodyAngularVelocity")
+                    bav.Name = "SpinBotBav"
+                    bav.MaxTorque = Vector3.new(0, math.huge, 0)
+                    bav.Parent = hrp
+                end
+                bav.AngularVelocity = Vector3.new(0, Cfg.SpinSpeed / 10, 0)
+            else
+                h.AutoRotate = true
+                local bav = hrp:FindFirstChild("SpinBotBav")
+                if bav then bav:Destroy() end
+            end
+        end
+    end)
+
+    pcall(function()
+        local cam = Workspace.CurrentCamera
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player and p.Character then
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    if Cfg.Hitbox and IsKillable(p, cam) then
+                        if not OrigHitboxData[hrp] then OrigHitboxData[hrp] = {Size = hrp.Size, Trans = hrp.Transparency, Collide = hrp.CanCollide, Massless = hrp.Massless} end
+                        local actualSize = math.clamp(Cfg.HitboxSize, 5, 50)
+                        hrp.Size = Vector3.new(actualSize, actualSize, actualSize)
+                        hrp.Transparency = 1
+                        hrp.CanCollide = false
+                        hrp.Massless = true 
+                    else
+                        if OrigHitboxData[hrp] then 
+                            hrp.Size = OrigHitboxData[hrp].Size
+                            hrp.Transparency = OrigHitboxData[hrp].Trans
+                            hrp.CanCollide = OrigHitboxData[hrp].Collide
+                            hrp.Massless = OrigHitboxData[hrp].Massless
+                            OrigHitboxData[hrp] = nil 
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    pcall(function()
+        if sharedTarget and typeof(sharedTarget) == "Instance" and sharedTarget.Character and sharedTarget.Character:FindFirstChild("HumanoidRootPart") then
+            local eHRP = sharedTarget.Character.HumanoidRootPart
+            if (isShooting or Cfg.AutoFire) and myChar and myChar:FindFirstChild("HumanoidRootPart") then
+                if Cfg.AimMagnet then
+                    local cam = Workspace.CurrentCamera
+                    local lookDir = cam.CFrame.LookVector
+                    local camPos = myChar.HumanoidRootPart.Position + myChar.Humanoid.CameraOffset
+                    
+                    local magnetPos = camPos + (lookDir * 20)
+                    eHRP.CFrame = CFrame.new(magnetPos, camPos)
+                    eHRP.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                elseif Cfg.AimKill then
+                    myChar.HumanoidRootPart.CFrame = eHRP.CFrame * CFrame.new(0, 0, 4); myChar.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
+                end
+            end
+        end
+    end)
+
+    pcall(function()
+        if Cfg.AutoFire and sharedTarget and typeof(sharedTarget) == "Instance" and sharedTarget.Character then
+            local tool = myChar:FindFirstChildOfClass("Tool") or player.Backpack:FindFirstChildOfClass("Tool")
+            if tool then
+                local now = tick(); local delaySec = Cfg.FireDelay / 10 
+                if now - lastAutoFire >= delaySec then 
+                    lastAutoFire = now
+                    if Cfg.FireMethod == "Tool (Safe)" then 
+                        if getgenv and getgenv().mouse2click then
+                            getgenv().mouse2click()
+                        else
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 1, true, game, 1)
+                            task.wait(0.01)
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 1, false, game, 1)
+                        end
+                    elseif Cfg.FireMethod == "VirtualUser (Smooth)" then 
+                        VirtualUser:CaptureController(); VirtualUser:ClickButton1(Vector2.new(Workspace.CurrentCamera.ViewportSize.X/2, Workspace.CurrentCamera.ViewportSize.Y/2))
+                    elseif Cfg.FireMethod == "Mouse (Hack)" then 
+                        if getgenv and getgenv().mouse1click then getgenv().mouse1click() end 
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+local ESP_Caches = {}
+local function setVis(obj, state) if obj.Visible ~= state then obj.Visible = state end end
+
+RunService.RenderStepped:Connect(function()
+    local cam = Workspace.CurrentCamera; if not cam then return end
+    if not Cfg.Master then 
+        setVis(fovCircle, false); setVis(enemyCountLbl, false)
+        for _, v in pairs(ESP_Caches) do setVis(v.FullBoxBG, false); for i=1,8 do setVis(v.Corners[i], false) end; setVis(v.Line, false); setVis(v.Bg, false) end; return 
+    end
+
+    local currentEnemies = 0
+
+    pcall(function()
+        local cen = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
+        fovCircle.Size = UDim2.new(0, Cfg.FOVSize, 0, Cfg.FOVSize); fovCircle.Position = UDim2.new(0, cen.X - Cfg.FOVSize/2, 0, cen.Y - Cfg.FOVSize/2)
+        setVis(fovCircle, Cfg.FOVShow and not Cfg.FOV360)
+
+        local targetInFOV = GetTargetInFOV()
+        if isShooting then if not IsKillable(lockedTarget, cam) then lockedTarget = targetInFOV end; sharedTarget = lockedTarget
+        else lockedTarget = nil; sharedTarget = targetInFOV end
+
+        if Cfg.AimLock and sharedTarget and typeof(sharedTarget) == "Instance" and sharedTarget.Character and sharedTarget.Character:FindFirstChild(Cfg.Part) then
+            cam.CFrame = CFrame.new(cam.CFrame.Position, sharedTarget.Character[Cfg.Part].Position) 
+        end
+    end)
+
+    pcall(function()
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player then
+                if not ESP_Caches[p] then
+                    local cache = {}; cache.FullBoxBG = Instance.new("Frame", sg); cache.FullBoxBG.BackgroundTransparency = 1; cache.FullBoxBG.BorderSizePixel = 0
+                    local fbStrokeBG = Instance.new("UIStroke", cache.FullBoxBG); fbStrokeBG.Thickness = 2.5; fbStrokeBG.Color = Color3.new(0,0,0)
+                    cache.FullBox = Instance.new("Frame", cache.FullBoxBG); cache.FullBox.Size = UDim2.new(1,0,1,0); cache.FullBox.BackgroundTransparency = 1; cache.FullBox.BorderSizePixel = 0
+                    local fbStroke = Instance.new("UIStroke", cache.FullBox); fbStroke.Thickness = 1
+                    cache.Corners = {}; for i=1, 8 do local f = Instance.new("Frame", sg); f.BorderSizePixel = 0; f.ZIndex = 2; local out = Instance.new("Frame", f); out.BackgroundColor3 = Color3.new(0,0,0); out.BorderSizePixel = 0; out.ZIndex = 1; out.Size = UDim2.new(1, 2, 1, 2); out.Position = UDim2.new(0, -1, 0, -1); cache.Corners[i] = f end
+                    cache.Line = Instance.new("Frame", sg); cache.Line.AnchorPoint = Vector2.new(0.5, 0.5); cache.Line.BorderSizePixel = 0; local lOut = Instance.new("Frame", cache.Line); lOut.BackgroundColor3 = Color3.new(0,0,0); lOut.BorderSizePixel = 0; lOut.ZIndex = -1; lOut.AnchorPoint = Vector2.new(0.5, 0.5); lOut.Size = UDim2.new(1, 2, 1, 0); lOut.Position = UDim2.new(0.5, 0, 0.5, 0)
+                    cache.Bg = Instance.new("Frame", sg); cache.Bg.BackgroundColor3 = Color3.new(0,0,0); cache.Bg.BorderSizePixel = 1; cache.Bg.BorderColor3 = Color3.new(0,0,0); cache.Bar = Instance.new("Frame", cache.Bg); cache.Bar.BorderSizePixel = 0; ESP_Caches[p] = cache
+                end
+                
+                local c = ESP_Caches[p]; local char = p.Character
+                if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                    if not Cfg.TeamCheck or p.Team ~= player.Team then currentEnemies = currentEnemies + 1 end
+                    
+                    local hrp = char.HumanoidRootPart; local clr = (Cfg.TeamCheck and p.Team == player.Team) and Color3.fromRGB(0, 255, 0) or c_pink
+                    local pos, vis = cam:WorldToViewportPoint(hrp.Position)
+                    if vis then
+                        local top = cam:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3, 0)); local btm = cam:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0)); local h = math.abs(top.Y - btm.Y); local w = h / 1.5; local px, py = pos.X - w/2, top.Y
+                        if h > 0 and w > 0 and h < 3000 then
+                            if Cfg.ESPBox == "Full" then setVis(c.FullBoxBG, true); c.FullBoxBG.Size = UDim2.new(0, w, 0, h); c.FullBoxBG.Position = UDim2.new(0, px, 0, py); c.FullBox.UIStroke.Color = clr; for i=1,8 do setVis(c.Corners[i], false) end
+                            elseif Cfg.ESPBox == "Corner" then setVis(c.FullBoxBG, false); local L, T = w / 3.5, 1.5; c.Corners[1].Size = UDim2.new(0, L, 0, T); c.Corners[1].Position = UDim2.new(0, px, 0, py); c.Corners[2].Size = UDim2.new(0, T, 0, L); c.Corners[2].Position = UDim2.new(0, px, 0, py); c.Corners[3].Size = UDim2.new(0, L, 0, T); c.Corners[3].Position = UDim2.new(0, px + w - L, 0, py); c.Corners[4].Size = UDim2.new(0, T, 0, L); c.Corners[4].Position = UDim2.new(0, px + w - T, 0, py); c.Corners[5].Size = UDim2.new(0, L, 0, T); c.Corners[5].Position = UDim2.new(0, px, 0, py + h - T); c.Corners[6].Size = UDim2.new(0, T, 0, L); c.Corners[6].Position = UDim2.new(0, px, 0, py + h - L); c.Corners[7].Size = UDim2.new(0, L, 0, T); c.Corners[7].Position = UDim2.new(0, px + w - L, 0, py + h - T); c.Corners[8].Size = UDim2.new(0, T, 0, L); c.Corners[8].Position = UDim2.new(0, px + w - T, 0, py + h - L); for i=1,8 do c.Corners[i].BackgroundColor3 = clr; setVis(c.Corners[i], true) end
+                            else setVis(c.FullBoxBG, false); for i=1,8 do setVis(c.Corners[i], false) end end
+                            if Cfg.ESPHeal then local hp, max = char.Humanoid.Health, char.Humanoid.MaxHealth; setVis(c.Bg, true); c.Bg.Size = UDim2.new(0, 3, 0, h); c.Bg.Position = UDim2.new(0, px - 6, 0, py); c.Bar.BackgroundColor3 = Color3.fromRGB(0,255,0); c.Bar.Size = UDim2.new(1, 0, hp/max, 0); c.Bar.Position = UDim2.new(0, 0, 1 - (hp/max), 0) else setVis(c.Bg, false) end
+                            if Cfg.ESPTracer then local sBtm = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y); local dist = (Vector2.new(pos.X, pos.Y) - sBtm).Magnitude; setVis(c.Line, true); c.Line.BackgroundColor3 = clr; c.Line.Size = UDim2.new(0, 1.5, 0, dist); c.Line.Position = UDim2.new(0, (sBtm.X + pos.X)/2, 0, (sBtm.Y + pos.Y)/2); c.Line.Rotation = math.deg(math.atan2(pos.Y - sBtm.Y, pos.X - sBtm.X)) - 90 else setVis(c.Line, false) end
+                        else setVis(c.FullBoxBG, false); for i=1,8 do setVis(c.Corners[i], false) end; setVis(c.Line, false); setVis(c.Bg, false) end
+                    else setVis(c.FullBoxBG, false); for i=1,8 do setVis(c.Corners[i], false) end; setVis(c.Line, false); setVis(c.Bg, false) end
+                else setVis(c.FullBoxBG, false); for i=1,8 do setVis(c.Corners[i], false) end; setVis(c.Line, false); setVis(c.Bg, false) end
+            end
+        end
+    end)
+    
+    if Cfg.EnemyCount then
+        setVis(enemyCountLbl, true)
+        enemyCountLbl.Text = (Cfg.Language == "VN" and "SỐ KẺ ĐỊCH: " or "ENEMIES: ") .. tostring(currentEnemies)
+    else
+        setVis(enemyCountLbl, false)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(p) if ESP_Caches[p] then ESP_Caches[p].FullBoxBG:Destroy(); for i=1,8 do ESP_Caches[p].Corners[i]:Destroy() end; ESP_Caches[p].Line:Destroy(); ESP_Caches[p].Bg:Destroy(); ESP_Caches[p] = nil end end)
+
+local tC = 0
+local gestureStartTime = 0
+local isValidTap = false
+
+UserInputService.TouchStarted:Connect(function()
+    tC = tC + 1
+    if tC == 1 then
+        gestureStartTime = tick()
+        isValidTap = true
+    elseif tC <= 3 then
+        if tick() - gestureStartTime > 0.25 then
+            isValidTap = false
+        end
+    end
+end)
+
+UserInputService.TouchEnded:Connect(function()
+    if tC == 3 and isValidTap then
+        if tick() - gestureStartTime <= 0.5 then
+            main.Visible = not main.Visible
+            isValidTap = false 
+        end
+    end
+    
+    tC = math.max(0, tC - 1)
+    if tC == 0 then
+        isValidTap = false
+    end
+end)

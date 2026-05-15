@@ -1,4 +1,4 @@
--- [[ VŨ KHOA V31 PRO - BACKGROUND NO RECOIL + SMART SILENT AIM (WALL CHECK) + TALL HITBOX + ESP FIX ]]
+-- [[ VŨ KHOA V50 PRO - OLD NOTIFY RESTORED + FLING ANCHOR FIX + TRUE PHYSICS ]]
 local lp = game:GetService("Players").LocalPlayer
 local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
@@ -9,58 +9,207 @@ local cam = workspace.CurrentCamera
 -- Biến logic Hệ Thống
 local godMode1Active, godMode2Active, godMode3Active = false, false, false
 local silentAimActive = false
+local silentAimHeadshotRate = 100 
 local currentSilentAimTarget = nil 
 local godModeConn, loopHealConn, antiVoidConn, charAddedConn = nil, nil, nil, nil
 local godMode3Conn = nil
 local ghostModel = nil
+local noRecoilActive = false
 
--- [[ HỆ THỐNG CHẠY NGẦM MẶC ĐỊNH ]]
+-- Biến logic Fling
+local flingModeActive = false
+local isFlinging = false
+local flingGuis = {}
+
+-- [[ CACHE HỆ THỐNG: CHỐNG LAG CPU ]]
+local charPartsCache = {}
+local function cacheCharParts(character)
+    charPartsCache = {}
+    if character then
+        for _, v in pairs(character:GetDescendants()) do
+            if v:IsA("BasePart") then table.insert(charPartsCache, v) end
+        end
+        character.DescendantAdded:Connect(function(v)
+            if v:IsA("BasePart") then table.insert(charPartsCache, v) end
+        end)
+    end
+end
+if lp.Character then cacheCharParts(lp.Character) end
+
 if setfpscap then pcall(function() setfpscap(999) end) end
-
 local VirtualUser = game:GetService("VirtualUser")
 lp.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- [[ HỆ THỐNG TÌM MỤC TIÊU CHO SILENT AIM (CÓ WALL CHECK) ]]
+local function ApplyIOSGlassEdge(parent)
+    local stroke = Instance.new("UIStroke", parent)
+    stroke.Thickness = 1.2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    local gradient = Instance.new("UIGradient", stroke)
+    gradient.Rotation = 45
+    gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 120, 130)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))})
+    gradient.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.5, 0.8), NumberSequenceKeypoint.new(1, 0.2)})
+    return stroke
+end
+
+local notifyEnabled = true
+local IOS_BLUE = Color3.fromRGB(10, 132, 255)
+
+-- [[ KHÔI PHỤC NOTIFY KIỂU CŨ ]]
+local function SendNotify(title, text, duration)
+    if not notifyEnabled then return end
+    local NotifyGui = coreGui:FindFirstChild("VuKhoa_Notify_System") or Instance.new("ScreenGui", coreGui)
+    NotifyGui.Name = "VuKhoa_Notify_System"
+    local Frame = Instance.new("Frame", NotifyGui)
+    Frame.Size = UDim2.new(0, 240, 0, 70); Frame.Position = UDim2.new(1, 10, 1, -85); Frame.BorderSizePixel = 0
+    Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30); Frame.BackgroundTransparency = 0.35
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 16)
+    ApplyIOSGlassEdge(Frame)
+    local Tl = Instance.new("TextLabel", Frame); Tl.Text = "  "..title; Tl.Size = UDim2.new(1,0,0,28); Tl.BackgroundTransparency = 1; Tl.TextColor3 = IOS_BLUE; Tl.Font = Enum.Font.GothamMedium; Tl.TextSize = 14; Tl.TextXAlignment = "Left"
+    local Tx = Instance.new("TextLabel", Frame); Tx.Text = "  "..text; Tx.Size = UDim2.new(1,0,1,-28); Tx.Position = UDim2.new(0,0,0,28); Tx.BackgroundTransparency = 1; Tx.TextColor3 = Color3.fromRGB(240, 240, 245); Tx.Font = Enum.Font.Gotham; Tx.TextSize = 13; Tx.TextXAlignment = "Left"; Tx.TextWrapped = true
+    Frame:TweenPosition(UDim2.new(1, -250, 1, -85), "Out", "Quart", 0.6, true)
+    task.delay(duration or 3.5, function() if Frame then Frame:Destroy() end end)
+end
+
+-- [[ HỆ THỐNG FLING CHỐNG VĂNG NGƯỢC (ANCHOR RETURN) ]]
+local function FlingPlayer(targetPlayer)
+    if isFlinging or not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
+    if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    isFlinging = true
+    local char = lp.Character
+    local root = char.HumanoidRootPart
+    local targetRoot = targetPlayer.Character.HumanoidRootPart
+    local hum = char:FindFirstChild("Humanoid")
+    local savedCFrame = root.CFrame
+    
+    SendNotify("Fling", "Đang bón hành: " .. targetPlayer.Name, 1.5)
+    
+    local oldState = hum and hum:GetState() or Enum.HumanoidStateType.Running
+    if hum then hum:ChangeState(Enum.HumanoidStateType.Physics) end
+
+    -- Dọn dẹp body movers
+    for _, v in pairs(root:GetChildren()) do
+        if v:IsA("BodyVelocity") or v:IsA("BodyGyro") or v:IsA("BodyAngularVelocity") or v:IsA("BodyThrust") then v:Destroy() end
+    end
+    
+    -- Buff Tạ: Tăng trọng lượng, tắt CanCollide các bộ phận dư thừa
+    for _, v in pairs(char:GetDescendants()) do
+        if v:IsA("BasePart") then 
+            v.CustomPhysicalProperties = PhysicalProperties.new(100, 0.3, 0.5) 
+            v.CanCollide = false 
+        end
+    end
+    root.CanCollide = true 
+    
+    local bav = Instance.new("BodyAngularVelocity")
+    bav.Name = "VuKhoa_FlingForce"
+    bav.AngularVelocity = Vector3.new(0, 9e5, 0) -- Xoay lốc xoáy quanh trục Y
+    bav.MaxTorque = Vector3.new(0, math.huge, 0)
+    bav.P = math.huge
+    bav.Parent = root
+    
+    local startTime = os.clock()
+    
+    -- Dùng vòng lặp đồng bộ có Cảm biến vận tốc ngắt thông minh
+    while os.clock() - startTime < 1.5 do
+        runService.Heartbeat:Wait()
+        
+        -- Check an toàn: Đối thủ rời game hoặc chết
+        if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then 
+            break 
+        end
+        
+        targetRoot = targetPlayer.Character.HumanoidRootPart
+        
+        -- [ CẢM BIẾN ]: Tránh bị bay theo! Nếu đối thủ bay tốc độ cao hoặc văng khỏi map thì ngắt ngay.
+        if targetRoot.Velocity.Magnitude > 250 or targetRoot.Position.Y < -50 then
+            break
+        end
+        
+        -- Cọ xát vật lý
+        root.Velocity = Vector3.zero 
+        root.RotVelocity = Vector3.new(50000, 50000, 50000)
+        root.CFrame = targetRoot.CFrame * CFrame.new(math.random(-1, 1), math.random(-0.5, 0.5), math.random(-1, 1))
+    end
+    
+    -- Kết thúc hủy diệt, dọn dẹp
+    if bav then bav:Destroy() end
+    if hum then hum:ChangeState(oldState) end
+    
+    -- Khôi phục trọng lượng
+    for _, v in pairs(char:GetDescendants()) do
+        if v:IsA("BasePart") then 
+            v.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5) 
+        end
+    end
+    
+    -- [ FIX MẠNH ]: KHÓA BĂNG NHÂN VẬT ĐỂ TRIỆT TIÊU LỰC PHẢN HỒI
+    if root then
+        root.Anchored = true
+        root.Velocity = Vector3.zero
+        root.RotVelocity = Vector3.zero
+        root.CFrame = savedCFrame
+    end
+    
+    task.wait(0.1) -- Chờ game nhận diện bạn đứng im
+    
+    if root then
+        root.CFrame = savedCFrame
+        root.Anchored = false -- Mở băng
+    end
+    
+    SendNotify("Fling", "Xong việc, đứng vững!", 1.5)
+    isFlinging = false
+end
+
+-- [[ TỐI ƯU HÓA: TÌM MỤC TIÊU SILENT AIM ]]
 local function getNearestTarget()
     local nearestDist = math.huge
-    local nearestTarget = nil
+    local potentialTargets = {}
     local mPos = uis:GetMouseLocation()
     local origin = cam.CFrame.Position
     
     for _, p in pairs(game.Players:GetPlayers()) do
-        if p ~= lp and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            local head = p.Character.Head
-            local screenPos, onScreen = cam:WorldToViewportPoint(head.Position)
-            
-            if onScreen then
-                local dist = (Vector2.new(screenPos.X, screenPos.Y) - mPos).Magnitude
-                if dist < nearestDist then
-                    -- WALL CHECK: Phóng tia kiểm tra vật cản
-                    local params = RaycastParams.new()
-                    local ignoreList = {lp.Character, p.Character}
-                    if ghostModel then table.insert(ignoreList, ghostModel) end
-                    params.FilterDescendantsInstances = ignoreList
-                    params.FilterType = Enum.RaycastFilterType.Exclude
-                    params.IgnoreWater = true
-                    
-                    local result = workspace:Raycast(origin, head.Position - origin, params)
-                    
-                    -- Nếu result == nil tức là không va trúng bức tường nào -> Mục tiêu nhìn thấy được
-                    if not result then
-                        nearestDist = dist
-                        nearestTarget = head
-                    end
+        if p ~= lp and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+            local head = p.Character:FindFirstChild("Head")
+            local body = p.Character:FindFirstChild("HumanoidRootPart") or p.Character:FindFirstChild("UpperTorso")
+            if head and body then
+                local screenPos, onScreen = cam:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mPos).Magnitude
+                    table.insert(potentialTargets, {player = p, distance = dist, head = head, body = body})
                 end
             end
         end
     end
-    return nearestTarget
+    table.sort(potentialTargets, function(a, b) return a.distance < b.distance end)
+    
+    for _, targetData in ipairs(potentialTargets) do
+        local params = RaycastParams.new()
+        local ignoreList = {lp.Character, targetData.player.Character}
+        if ghostModel then table.insert(ignoreList, ghostModel) end
+        params.FilterDescendantsInstances = ignoreList
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        params.IgnoreWater = true
+        
+        local result = workspace:Raycast(origin, targetData.head.Position - origin, params)
+        if not result then
+            local rand = math.random(1, 100)
+            if rand <= silentAimHeadshotRate then return targetData.head else return targetData.body end
+        end
+    end
+    return nil
 end
 
--- Bypass Anti-Cheat & God Mode Hook & SMART Silent Aim Hook
+task.spawn(function()
+    while task.wait(0.1) do
+        if silentAimActive then currentSilentAimTarget = getNearestTarget() else currentSilentAimTarget = nil end
+    end
+end)
+
 pcall(function()
     local mt = getrawmetatable(game)
     local oldIndex = mt.__index
@@ -86,17 +235,12 @@ pcall(function()
     mt.__namecall = newcclosure(function(self, ...)
         local method = getnamecallmethod()
         local args = {...}
-
         if not checkcaller() then
             if (method == "Kick" or method == "kick") and self == lp then return nil end
-            
-            -- Chặn Damage cho God Mode
             if (godMode1Active or godMode2Active or godMode3Active) then
                 if method == "TakeDamage" and self:IsA("Humanoid") then return nil end
                 if method == "BreakJoints" and self == lp.Character then return nil end
             end
-
-            -- SMART SILENT AIM: Bẻ đạn trúng đích
             if silentAimActive and currentSilentAimTarget then
                 if method == "Raycast" and typeof(args[1]) == "Vector3" and typeof(args[2]) == "Vector3" then
                     local dirMag = args[2].Magnitude
@@ -124,17 +268,16 @@ pcall(function()
 end)
 
 for _, old in pairs(coreGui:GetChildren()) do
-    if old.Name == "TrVuKhoaa_Sync_UI" or old.Name == "VuKhoa_Notify_System" or old.Name == "VuKhoa_ESP_Layer" then
-        old:Destroy()
-    end
+    if old.Name == "TrVuKhoaa_Sync_UI" or old.Name == "VuKhoa_Notify_System" or old.Name == "VuKhoa_ESP_Layer" or old.Name == "VuKhoa_FlingGui" then old:Destroy() end
 end
 
--- Biến logic
 local localMoveDir = Vector3.new(0,0,0)
 local currentSpeed = 2 
 local currentWalkSpeedLevel = 1 
 local currentHitboxSize = 100
+local currentSpinSpeed = 50 
 local noclipActive = false
+local moonwalkActive = false
 local ghimActive, xrayActive, ghostActive, backPosActive = false, false, false, false
 local spinBotActive, fpsActive, tapWallActive, infJumpActive, hitboxActive = false, false, false, false, false
 local moveModeFace = true 
@@ -142,94 +285,59 @@ local espLineActive, espBoxActive, espCountActive = false, false, false
 local setSpawnActive = false
 local thirdPersonActive = false
 local savedSpawnCFrame = nil
-local notifyEnabled = true
 local lockedPos, backPosCoord = nil, nil
 local lastFlingRescue = 0
-
 local wasMoving = false
 local lastMv = Vector3.zero
 
 local ASSET_ID = "rbxthumb://type=Asset&id=82965671854344&w=150&h=150" 
-local IOS_BLUE = Color3.fromRGB(10, 132, 255)
+local GRADIENT_PURPLE = Color3.fromRGB(138, 43, 226)
+local COLOR_RED = Color3.fromRGB(255, 59, 48)
+local COLOR_ORANGE = Color3.fromRGB(255, 149, 0)
+local COLOR_PINK = Color3.fromRGB(255, 105, 180)
 
 local ESPLayer = Instance.new("ScreenGui", coreGui)
 ESPLayer.Name = "VuKhoa_ESP_Layer"
 ESPLayer.IgnoreGuiInset = true 
 local espCache = {}
 
-local function ApplyIOSGlassEdge(parent)
-    local stroke = Instance.new("UIStroke", parent)
-    stroke.Thickness = 1.2
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    local gradient = Instance.new("UIGradient", stroke)
-    gradient.Rotation = 45
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 120, 130)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
-    })
-    gradient.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.2),
-        NumberSequenceKeypoint.new(0.5, 0.8),
-        NumberSequenceKeypoint.new(1, 0.2)
-    })
-    return stroke
-end
-
-local function SendNotify(title, text, duration)
-    if not notifyEnabled then return end
-    local NotifyGui = coreGui:FindFirstChild("VuKhoa_Notify_System") or Instance.new("ScreenGui", coreGui)
-    NotifyGui.Name = "VuKhoa_Notify_System"
-    local Frame = Instance.new("Frame", NotifyGui)
-    Frame.Size = UDim2.new(0, 240, 0, 70); Frame.Position = UDim2.new(1, 10, 1, -85); Frame.BorderSizePixel = 0
-    Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30); Frame.BackgroundTransparency = 0.35
-    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 16)
-    ApplyIOSGlassEdge(Frame)
-    
-    local Tl = Instance.new("TextLabel", Frame); Tl.Text = "  "..title; Tl.Size = UDim2.new(1,0,0,28); Tl.BackgroundTransparency = 1; Tl.TextColor3 = IOS_BLUE; Tl.Font = Enum.Font.GothamMedium; Tl.TextSize = 14; Tl.TextXAlignment = "Left"
-    local Tx = Instance.new("TextLabel", Frame); Tx.Text = "  "..text; Tx.Size = UDim2.new(1,0,1,-28); Tx.Position = UDim2.new(0,0,0,28); Tx.BackgroundTransparency = 1; Tx.TextColor3 = Color3.fromRGB(240, 240, 245); Tx.Font = Enum.Font.Gotham; Tx.TextSize = 13; Tx.TextXAlignment = "Left"; Tx.TextWrapped = true
-    Frame:TweenPosition(UDim2.new(1, -250, 1, -85), "Out", "Quart", 0.6, true)
-    task.delay(duration or 3.5, function() if Frame then Frame:Destroy() end end)
-end
-
 local function MakeDraggable(gui, dragHandle)
     dragHandle = dragHandle or gui
-    local dragging, dragInput, dragStart, startPos
+    local dragging = false
+    local dragInput, dragStart, startPos
+    
     dragHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = input.Position; startPos = gui.Position
-            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+            dragging = true
+            dragInput = input 
+            dragStart = input.Position
+            startPos = gui.Position
+            input.Changed:Connect(function() 
+                if input.UserInputState == Enum.UserInputState.End then dragging = false; dragInput = nil end 
+            end) 
         end
     end)
-    dragHandle.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
-    uis.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
+    uis.InputChanged:Connect(function(input) 
+        if dragging and input == dragInput then 
             local delta = input.Position - dragStart
-            gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
+            gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) 
+        end 
     end)
 end
 
--- =================== GIAO DIỆN CHÍNH ===================
 local ScreenGui = Instance.new("ScreenGui", coreGui); ScreenGui.Name = "TrVuKhoaa_Sync_UI"
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 240, 0, 480); MainFrame.Position = UDim2.new(0.5, -120, 0.4, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MainFrame.BackgroundTransparency = 0.35 
-MainFrame.Active = true; MainFrame.ClipsDescendants = true; MainFrame.BorderSizePixel = 0
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 18)
-ApplyIOSGlassEdge(MainFrame); MakeDraggable(MainFrame)
+local MainFrame = Instance.new("Frame", ScreenGui); MainFrame.Size = UDim2.new(0, 240, 0, 480); MainFrame.Position = UDim2.new(0.5, -120, 0.4, 0); MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MainFrame.BackgroundTransparency = 0.35; MainFrame.Active = true; MainFrame.ClipsDescendants = true; MainFrame.BorderSizePixel = 0
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 18); ApplyIOSGlassEdge(MainFrame); MakeDraggable(MainFrame)
 
 local TitleBar = Instance.new("Frame", MainFrame); TitleBar.Size = UDim2.new(1, 0, 0, 40); TitleBar.BackgroundTransparency = 1; TitleBar.BorderSizePixel = 0
 local MiniBtn = Instance.new("TextButton", TitleBar); MiniBtn.Size = UDim2.new(0, 30, 0, 30); MiniBtn.Position = UDim2.new(0, 5, 0.5, -15); MiniBtn.Text = "▼"; MiniBtn.TextColor3 = IOS_BLUE; MiniBtn.BackgroundTransparency = 1; MiniBtn.Font = Enum.Font.GothamMedium; MiniBtn.TextSize = 16
-local TitleText = Instance.new("TextLabel", TitleBar); TitleText.Size = UDim2.new(1, -70, 1, 0); TitleText.Position = UDim2.new(0, 35, 0, 0); TitleText.Text = "VŨ KHOA V31 PRO"; TitleText.TextColor3 = Color3.fromRGB(255, 255, 255); TitleText.BackgroundTransparency = 1; TitleText.TextXAlignment = "Left"; TitleText.Font = Enum.Font.GothamMedium; TitleText.TextSize = 12
+local TitleText = Instance.new("TextLabel", TitleBar); TitleText.Size = UDim2.new(1, -70, 1, 0); TitleText.Position = UDim2.new(0, 35, 0, 0); TitleText.Text = "VŨ KHOA V50 PRO"; TitleText.TextColor3 = Color3.fromRGB(255, 255, 255); TitleText.BackgroundTransparency = 1; TitleText.TextXAlignment = "Left"; TitleText.Font = Enum.Font.GothamMedium; TitleText.TextSize = 12
 local CloseBtn = Instance.new("TextButton", TitleBar); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -35, 0.5, -15); CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamMedium; CloseBtn.TextSize = 17
 
--- 3 TABS GIAO DIỆN
 local TabBar = Instance.new("Frame", MainFrame); TabBar.Size = UDim2.new(1, 0, 0, 35); TabBar.Position = UDim2.new(0, 0, 0, 40); TabBar.BackgroundTransparency = 1
 local TabMainBtn = Instance.new("TextButton", TabBar); TabMainBtn.Size = UDim2.new(0.33, 0, 1, 0); TabMainBtn.BackgroundTransparency = 1; TabMainBtn.Text = "CHÍNH"; TabMainBtn.Font = Enum.Font.GothamBold; TabMainBtn.TextColor3 = IOS_BLUE; TabMainBtn.TextSize = 11
 local TabPage2Btn = Instance.new("TextButton", TabBar); TabPage2Btn.Size = UDim2.new(0.33, 0, 1, 0); TabPage2Btn.Position = UDim2.new(0.33, 0, 0, 0); TabPage2Btn.BackgroundTransparency = 1; TabPage2Btn.Text = "TRANG 2"; TabPage2Btn.Font = Enum.Font.GothamBold; TabPage2Btn.TextColor3 = Color3.fromRGB(150, 150, 160); TabPage2Btn.TextSize = 11
 local TabESPBtn = Instance.new("TextButton", TabBar); TabESPBtn.Size = UDim2.new(0.33, 0, 1, 0); TabESPBtn.Position = UDim2.new(0.66, 0, 0, 0); TabESPBtn.BackgroundTransparency = 1; TabESPBtn.Text = "ESP"; TabESPBtn.Font = Enum.Font.GothamBold; TabESPBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabESPBtn.TextSize = 11
-
 local TabIndicator = Instance.new("Frame", TabBar); TabIndicator.Size = UDim2.new(0.2, 0, 0, 2); TabIndicator.Position = UDim2.new(0.06, 0, 1, -2); TabIndicator.BackgroundColor3 = IOS_BLUE; TabIndicator.BorderSizePixel = 0; Instance.new("UICorner", TabIndicator).CornerRadius = UDim.new(1,0)
 
 local function CreateFloatingPill(xOffset, defaultText)
@@ -242,99 +350,33 @@ end
 local FpsPill, FpsLabel = CreateFloatingPill(-100, "FPS: 0")
 local CountPill, CountLabel = CreateFloatingPill(10, "Địch: 0")
 
--- ================= CÁC NÚT NỔI (TRÒN) =================
-local SpawnBtnFrame = Instance.new("Frame", ScreenGui); SpawnBtnFrame.Size = UDim2.new(0, 42, 0, 42); SpawnBtnFrame.Position = UDim2.new(0.5, -99, 0.1, 0); SpawnBtnFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); SpawnBtnFrame.BackgroundTransparency = 0.35; SpawnBtnFrame.BorderSizePixel = 0; SpawnBtnFrame.Visible = false; Instance.new("UICorner", SpawnBtnFrame).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(SpawnBtnFrame)
-local SpawnBtn = Instance.new("TextButton", SpawnBtnFrame); SpawnBtn.Size = UDim2.new(1, 0, 1, 0); SpawnBtn.BackgroundTransparency = 1; SpawnBtn.Text = "🚩"; SpawnBtn.Font = Enum.Font.GothamMedium; SpawnBtn.TextColor3 = Color3.fromRGB(240, 240, 245); SpawnBtn.TextSize = 20; MakeDraggable(SpawnBtnFrame, SpawnBtn)
-local isDraggingSpawn = false; local dragStartPosSpawn
-SpawnBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then dragStartPosSpawn = input.Position; isDraggingSpawn = false end end)
-SpawnBtn.InputChanged:Connect(function(input) if dragStartPosSpawn and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then if (input.Position - dragStartPosSpawn).Magnitude > 5 then isDraggingSpawn = true end end end)
-SpawnBtn.MouseButton1Click:Connect(function() if isDraggingSpawn then return end; setSpawnActive = not setSpawnActive
-    if setSpawnActive and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then savedSpawnCFrame = lp.Character.HumanoidRootPart.CFrame; SpawnBtn.Text = "✅"; SendNotify("Hệ Thống", "Đã chốt vị trí hồi sinh!", 2) else setSpawnActive = false; savedSpawnCFrame = nil; SpawnBtn.Text = "🚩"; SendNotify("Hệ Thống", "Đã xóa vị trí hồi sinh!", 2) end
-end)
+local function CreateActionBtn(xOffset, text, clickFunc)
+    local Frm = Instance.new("Frame", ScreenGui); Frm.Size = UDim2.new(0, 42, 0, 42); Frm.Position = UDim2.new(0.5, xOffset, 0.1, 0); Frm.BackgroundColor3 = Color3.fromRGB(25, 25, 32); Frm.BackgroundTransparency = 0.35; Frm.BorderSizePixel = 0; Frm.Visible = false; Instance.new("UICorner", Frm).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(Frm)
+    local Btn = Instance.new("TextButton", Frm); Btn.Size = UDim2.new(1, 0, 1, 0); Btn.BackgroundTransparency = 1; Btn.Text = text; Btn.Font = Enum.Font.GothamMedium; Btn.TextColor3 = Color3.fromRGB(240, 240, 245); Btn.TextSize = 20; MakeDraggable(Frm, Btn)
+    local dragging = false; local dragInput, dragStart
+    Btn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragStart = i.Position; dragInput = i; dragging = false; i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then dragInput = nil end end) end end)
+    Btn.InputChanged:Connect(function(i) if dragInput == i and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then if (i.Position - dragStart).Magnitude > 5 then dragging = true end end end)
+    Btn.MouseButton1Click:Connect(function() if not dragging then clickFunc(Btn) end end)
+    return Frm
+end
 
-local ResetBtnFrame = Instance.new("Frame", ScreenGui); ResetBtnFrame.Size = UDim2.new(0, 42, 0, 42); ResetBtnFrame.Position = UDim2.new(0.5, -47, 0.1, 0); ResetBtnFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); ResetBtnFrame.BackgroundTransparency = 0.35; ResetBtnFrame.BorderSizePixel = 0; ResetBtnFrame.Visible = false; Instance.new("UICorner", ResetBtnFrame).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(ResetBtnFrame)
-local ResetBtn = Instance.new("TextButton", ResetBtnFrame); ResetBtn.Size = UDim2.new(1, 0, 1, 0); ResetBtn.BackgroundTransparency = 1; ResetBtn.Text = "💀"; ResetBtn.Font = Enum.Font.GothamBold; ResetBtn.TextSize = 20; MakeDraggable(ResetBtnFrame, ResetBtn)
-local isDraggingReset = false; local dragStartPosReset
-ResetBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then dragStartPosReset = input.Position; isDraggingReset = false end end)
-ResetBtn.InputChanged:Connect(function(input) if dragStartPosReset and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then if (input.Position - dragStartPosReset).Magnitude > 5 then isDraggingReset = true end end end)
-ResetBtn.MouseButton1Click:Connect(function() if isDraggingReset then return end; local char = lp.Character; if char then local hum = char:FindFirstChild("Humanoid"); if hum then hum.Health = 0 end char:BreakJoints(); SendNotify("Hệ Thống", "Đã ép Reset nhân vật!", 2) end end)
+local SpawnBtnFrame = CreateActionBtn(-99, "🚩", function(btn) setSpawnActive = not setSpawnActive; if setSpawnActive and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then savedSpawnCFrame = lp.Character.HumanoidRootPart.CFrame; btn.Text = "✅"; SendNotify("Spawn", "Đã chốt vị trí!", 1.5) else setSpawnActive = false; savedSpawnCFrame = nil; btn.Text = "🚩"; SendNotify("Spawn", "Đã xóa vị trí!", 1.5) end end)
+local ResetBtnFrame = CreateActionBtn(-47, "💀", function() local char = lp.Character; if char then local hum = char:FindFirstChild("Humanoid"); if hum then hum.Health = 0 end; char:BreakJoints(); SendNotify("Reset", "Đã ép Reset!", 1.5) end end)
+local BackPosBtnFrame = CreateActionBtn(5, "📍", function(btn) backPosActive = not backPosActive; if backPosActive and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then backPosCoord = lp.Character.HumanoidRootPart.CFrame; btn.Text = "⏪"; SendNotify("Back Pos", "Đã lưu vị trí!", 1.5) else backPosActive = false; if backPosCoord and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then lp.Character.HumanoidRootPart.CFrame = backPosCoord; SendNotify("Back Pos", "Dịch chuyển về chỗ cũ!", 1.5) end; btn.Text = "📍" end end)
+local GhostBtnFrame = CreateActionBtn(57, "👻", function(btn) ghostActive = not ghostActive; local char = lp.Character; if ghostActive and char and char:FindFirstChild("HumanoidRootPart") then lockedPos = char.HumanoidRootPart.CFrame; char.HumanoidRootPart.Anchored = true; char.Archivable = true; ghostModel = char:Clone(); ghostModel.Name = "VuKhoa_Ghost"; ghostModel.Parent = workspace; for _, v in pairs(ghostModel:GetDescendants()) do if v:IsA("BasePart") then v.Anchored = false; if v.Name ~= "HumanoidRootPart" then v.Transparency = 0.5 end end end; cam.CameraSubject = ghostModel:FindFirstChild("Humanoid"); btn.Text = "👤"; SendNotify("Hồn", "Tách hồn thành công!", 1.5) else ghostActive = false; if ghostModel and ghostModel:FindFirstChild("HumanoidRootPart") and char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false; char.HumanoidRootPart.CFrame = ghostModel.HumanoidRootPart.CFrame end; if ghostModel then ghostModel:Destroy(); ghostModel = nil end; if char then local hum = char:FindFirstChild("Humanoid"); if hum then cam.CameraSubject = hum end end; lockedPos = nil; btn.Text = "👻"; SendNotify("Hồn", "Nhập hồn thành công!", 1.5) end end)
 
-local BackPosBtnFrame = Instance.new("Frame", ScreenGui); BackPosBtnFrame.Size = UDim2.new(0, 42, 0, 42); BackPosBtnFrame.Position = UDim2.new(0.5, 5, 0.1, 0); BackPosBtnFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); BackPosBtnFrame.BackgroundTransparency = 0.35; BackPosBtnFrame.BorderSizePixel = 0; BackPosBtnFrame.Visible = false; Instance.new("UICorner", BackPosBtnFrame).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(BackPosBtnFrame)
-local BackPosBtn = Instance.new("TextButton", BackPosBtnFrame); BackPosBtn.Size = UDim2.new(1, 0, 1, 0); BackPosBtn.BackgroundTransparency = 1; BackPosBtn.Text = "📍"; BackPosBtn.Font = Enum.Font.GothamMedium; BackPosBtn.TextColor3 = Color3.fromRGB(240, 240, 245); BackPosBtn.TextSize = 20; MakeDraggable(BackPosBtnFrame, BackPosBtn)
-local isDraggingBackPos = false; local dragStartPosBackPos
-BackPosBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then dragStartPosBackPos = input.Position; isDraggingBackPos = false end end)
-BackPosBtn.InputChanged:Connect(function(input) if dragStartPosBackPos and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then if (input.Position - dragStartPosBackPos).Magnitude > 5 then isDraggingBackPos = true end end end)
-BackPosBtn.MouseButton1Click:Connect(function() if isDraggingBackPos then return end; backPosActive = not backPosActive
-    if backPosActive and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then backPosCoord = lp.Character.HumanoidRootPart.CFrame; BackPosBtn.Text = "⏪"; SendNotify("Hệ Thống", "Đã lưu vị trí Back Pos!", 1.5) else backPosActive = false; if backPosCoord and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then lp.Character.HumanoidRootPart.CFrame = backPosCoord; SendNotify("Hệ Thống", "Đã dịch chuyển về vị trí cũ!", 1.5) end; BackPosBtn.Text = "📍" end
-end)
-
-local GhostBtnFrame = Instance.new("Frame", ScreenGui); GhostBtnFrame.Size = UDim2.new(0, 42, 0, 42); GhostBtnFrame.Position = UDim2.new(0.5, 57, 0.1, 0); GhostBtnFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); GhostBtnFrame.BackgroundTransparency = 0.35; GhostBtnFrame.BorderSizePixel = 0; GhostBtnFrame.Visible = false; Instance.new("UICorner", GhostBtnFrame).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(GhostBtnFrame)
-local GhostBtn = Instance.new("TextButton", GhostBtnFrame); GhostBtn.Size = UDim2.new(1, 0, 1, 0); GhostBtn.BackgroundTransparency = 1; GhostBtn.Text = "👻"; GhostBtn.Font = Enum.Font.GothamMedium; GhostBtn.TextColor3 = Color3.fromRGB(240, 240, 245); GhostBtn.TextSize = 20; MakeDraggable(GhostBtnFrame, GhostBtn)
-local isDraggingGhost = false; local dragStartPosGhost
-GhostBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then dragStartPosGhost = input.Position; isDraggingGhost = false end end)
-GhostBtn.InputChanged:Connect(function(input) if dragStartPosGhost and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then if (input.Position - dragStartPosGhost).Magnitude > 5 then isDraggingGhost = true end end end)
-GhostBtn.MouseButton1Click:Connect(function() 
-    if isDraggingGhost then return end
-    ghostActive = not ghostActive
-    local char = lp.Character
-    if ghostActive and char and char:FindFirstChild("HumanoidRootPart") then
-        lockedPos = char.HumanoidRootPart.CFrame
-        char.HumanoidRootPart.Anchored = true 
-        char.Archivable = true
-        ghostModel = char:Clone()
-        ghostModel.Name = "VuKhoa_Ghost"
-        ghostModel.Parent = workspace
-        for _, v in pairs(ghostModel:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.Anchored = false
-                if v.Name ~= "HumanoidRootPart" then v.Transparency = 0.5 end
-            end
-        end
-        cam.CameraSubject = ghostModel:FindFirstChild("Humanoid")
-        GhostBtn.Text = "👤"
-        SendNotify("Tách Hồn", "Dùng Joystick/Nút nhảy bình thường!", 3)
-    else
-        ghostActive = false
-        if ghostModel and ghostModel:FindFirstChild("HumanoidRootPart") and char and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.Anchored = false
-            char.HumanoidRootPart.CFrame = ghostModel.HumanoidRootPart.CFrame
-        end
-        if ghostModel then ghostModel:Destroy(); ghostModel = nil end
-        if char and char:FindFirstChild("Humanoid") then
-            cam.CameraSubject = char.Humanoid
-        end
-        lockedPos = nil
-        GhostBtn.Text = "👻"
-        SendNotify("Nhập Hồn", "Xác đã dịch chuyển tới vị trí của hồn!", 3)
-    end
-end)
-
--- 3 KHUNG CHỨA TÍNH NĂNG 
-local ScrollMain = Instance.new("ScrollingFrame", MainFrame); ScrollMain.Size = UDim2.new(1, 0, 1, -80); ScrollMain.Position = UDim2.new(0, 0, 0, 80); ScrollMain.BackgroundTransparency = 1; ScrollMain.BorderSizePixel = 0; ScrollMain.ScrollBarThickness = 1.5; ScrollMain.CanvasSize = UDim2.new(0, 0, 0, 480)
+local ScrollMain = Instance.new("ScrollingFrame", MainFrame); ScrollMain.Size = UDim2.new(1, 0, 1, -80); ScrollMain.Position = UDim2.new(0, 0, 0, 80); ScrollMain.BackgroundTransparency = 1; ScrollMain.BorderSizePixel = 0; ScrollMain.ScrollBarThickness = 1.5; ScrollMain.CanvasSize = UDim2.new(0, 0, 0, 650)
 local ListMain = Instance.new("UIListLayout", ScrollMain); ListMain.Padding = UDim.new(0, 8); ListMain.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-local ScrollPage2 = Instance.new("ScrollingFrame", MainFrame); ScrollPage2.Size = UDim2.new(1, 0, 1, -80); ScrollPage2.Position = UDim2.new(0, 0, 0, 80); ScrollPage2.BackgroundTransparency = 1; ScrollPage2.BorderSizePixel = 0; ScrollPage2.ScrollBarThickness = 1.5; ScrollPage2.CanvasSize = UDim2.new(0, 0, 0, 440); ScrollPage2.Visible = false
+local ScrollPage2 = Instance.new("ScrollingFrame", MainFrame); ScrollPage2.Size = UDim2.new(1, 0, 1, -80); ScrollPage2.Position = UDim2.new(0, 0, 0, 80); ScrollPage2.BackgroundTransparency = 1; ScrollPage2.BorderSizePixel = 0; ScrollPage2.ScrollBarThickness = 1.5; ScrollPage2.CanvasSize = UDim2.new(0, 0, 0, 520); ScrollPage2.Visible = false
 local ListPage2 = Instance.new("UIListLayout", ScrollPage2); ListPage2.Padding = UDim.new(0, 8); ListPage2.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local ScrollESP = Instance.new("ScrollingFrame", MainFrame); ScrollESP.Size = UDim2.new(1, 0, 1, -80); ScrollESP.Position = UDim2.new(0, 0, 0, 80); ScrollESP.BackgroundTransparency = 1; ScrollESP.BorderSizePixel = 0; ScrollESP.ScrollBarThickness = 1.5; ScrollESP.CanvasSize = UDim2.new(0, 0, 0, 250); ScrollESP.Visible = false
 local ListESP = Instance.new("UIListLayout", ScrollESP); ListESP.Padding = UDim.new(0, 8); ListESP.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- LOGIC CHUYỂN TAB MỚI
-TabMainBtn.MouseButton1Click:Connect(function() 
-    ScrollMain.Visible = true; ScrollPage2.Visible = false; ScrollESP.Visible = false; 
-    TabMainBtn.TextColor3 = IOS_BLUE; TabPage2Btn.TextColor3 = Color3.fromRGB(150, 150, 160); TabESPBtn.TextColor3 = Color3.fromRGB(150, 150, 160); 
-    TabIndicator:TweenPosition(UDim2.new(0.06, 0, 1, -2), "Out", "Quad", 0.2, true) 
-end)
-TabPage2Btn.MouseButton1Click:Connect(function() 
-    ScrollMain.Visible = false; ScrollPage2.Visible = true; ScrollESP.Visible = false; 
-    TabPage2Btn.TextColor3 = IOS_BLUE; TabMainBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabESPBtn.TextColor3 = Color3.fromRGB(150, 150, 160); 
-    TabIndicator:TweenPosition(UDim2.new(0.40, 0, 1, -2), "Out", "Quad", 0.2, true) 
-end)
-TabESPBtn.MouseButton1Click:Connect(function() 
-    ScrollMain.Visible = false; ScrollPage2.Visible = false; ScrollESP.Visible = true; 
-    TabESPBtn.TextColor3 = IOS_BLUE; TabMainBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabPage2Btn.TextColor3 = Color3.fromRGB(150, 150, 160); 
-    TabIndicator:TweenPosition(UDim2.new(0.73, 0, 1, -2), "Out", "Quad", 0.2, true) 
-end)
+TabMainBtn.MouseButton1Click:Connect(function() ScrollMain.Visible = true; ScrollPage2.Visible = false; ScrollESP.Visible = false; TabMainBtn.TextColor3 = IOS_BLUE; TabPage2Btn.TextColor3 = Color3.fromRGB(150, 150, 160); TabESPBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabIndicator:TweenPosition(UDim2.new(0.06, 0, 1, -2), "Out", "Quad", 0.2, true) end)
+TabPage2Btn.MouseButton1Click:Connect(function() ScrollMain.Visible = false; ScrollPage2.Visible = true; ScrollESP.Visible = false; TabPage2Btn.TextColor3 = IOS_BLUE; TabMainBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabESPBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabIndicator:TweenPosition(UDim2.new(0.40, 0, 1, -2), "Out", "Quad", 0.2, true) end)
+TabESPBtn.MouseButton1Click:Connect(function() ScrollMain.Visible = false; ScrollPage2.Visible = false; ScrollESP.Visible = true; TabESPBtn.TextColor3 = IOS_BLUE; TabMainBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabPage2Btn.TextColor3 = Color3.fromRGB(150, 150, 160); TabIndicator:TweenPosition(UDim2.new(0.73, 0, 1, -2), "Out", "Quad", 0.2, true) end)
 
 local function CreateBtn(parent, text, callback, defaultActive)
     local Btn = Instance.new("TextButton", parent); Btn.Size = UDim2.new(0.92, 0, 0, 34); Btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Btn.BackgroundTransparency = 0.92; Btn.Text = "" 
@@ -343,7 +385,8 @@ local function CreateBtn(parent, text, callback, defaultActive)
     Instance.new("UICorner", Square).CornerRadius = UDim.new(1, 0)
     local Label = Instance.new("TextLabel", Btn); Label.Size = UDim2.new(1, -40, 1, 0); Label.Position = UDim2.new(0, 35, 0, 0); Label.BackgroundTransparency = 1; Label.Text = text; Label.Font = Enum.Font.Gotham; Label.TextColor3 = Color3.fromRGB(240, 240, 245); Label.TextSize = 12; Label.TextXAlignment = "Left"
     local active = defaultActive or false
-    Btn.MouseButton1Click:Connect(function() active = not active; Square.BackgroundColor3 = active and IOS_BLUE or Color3.fromRGB(80, 80, 85); Square.BackgroundTransparency = active and 0.1 or 0.6; SendNotify("Tính Năng", text .. (active and " đã bật" or " đã tắt"), 1.5); callback(active) end)
+    Btn.MouseButton1Click:Connect(function() active = not active; Square.BackgroundColor3 = active and IOS_BLUE or Color3.fromRGB(80, 80, 85); Square.BackgroundTransparency = active and 0.1 or 0.6; callback(active); SendNotify("Cài Đặt", text .. (active and " BẬT" or " TẮT"), 1.2) end)
+    return Btn
 end
 
 local function CreateInput(parent, title, placeholder, callback)
@@ -351,28 +394,24 @@ local function CreateInput(parent, title, placeholder, callback)
     local Label = Instance.new("TextLabel", Frame); Label.Size = UDim2.new(0.4, 0, 1, 0); Label.Position = UDim2.new(0, 10, 0, 0); Label.BackgroundTransparency = 1; Label.Text = title; Label.Font = Enum.Font.Gotham; Label.TextColor3 = Color3.fromRGB(240, 240, 245); Label.TextSize = 12; Label.TextXAlignment = "Left"
     local TextBox = Instance.new("TextBox", Frame); TextBox.Size = UDim2.new(0.5, 0, 0.75, 0); TextBox.Position = UDim2.new(0.45, 0, 0.125, 0); TextBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0); TextBox.BackgroundTransparency = 0.6; TextBox.Text = placeholder; TextBox.TextColor3 = Color3.new(1,1,1); TextBox.TextSize = 12; Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0, 6)
     TextBox.FocusLost:Connect(function() callback(TextBox.Text) end)
+    return Frame
 end
 
--- ================= CHỨC NĂNG NGẦM NO RECOIL (MẶC ĐỊNH LUÔN BẬT) =================
-task.spawn(function()
-    while task.wait(2) do
-        pcall(function()
-            for _, v in pairs(getgc(true)) do
-                if type(v) == "table" then
-                    if rawget(v, "Recoil") ~= nil then rawset(v, "Recoil", 0) end
-                    if rawget(v, "MaxSpread") ~= nil then rawset(v, "MaxSpread", 0) end
-                    if rawget(v, "Spread") ~= nil then rawset(v, "Spread", 0) end
-                    if rawget(v, "RecoilMax") ~= nil then rawset(v, "RecoilMax", 0) end
-                    if rawget(v, "RecoilMin") ~= nil then rawset(v, "RecoilMin", 0) end
-                    if rawget(v, "CameraKick") ~= nil then rawset(v, "CameraKick", 0) end
-                    if rawget(v, "Kickback") ~= nil then rawset(v, "Kickback", 0) end
-                end
-            end
-        end)
-    end
-end)
+local function CreateSlider(parent, text, min, max, default, colorStart, colorEnd, callback)
+    local Frame = Instance.new("Frame", parent); Frame.Size = UDim2.new(0.92, 0, 0, 45); Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Frame.BackgroundTransparency = 0.92; Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 10)
+    local Label = Instance.new("TextLabel", Frame); Label.Size = UDim2.new(1, -20, 0, 20); Label.Position = UDim2.new(0, 10, 0, 5); Label.BackgroundTransparency = 1; Label.Text = text .. ": " .. default; Label.Font = Enum.Font.Gotham; Label.TextColor3 = Color3.fromRGB(240, 240, 245); Label.TextSize = 12; Label.TextXAlignment = Enum.TextXAlignment.Left
+    local TrackBg = Instance.new("Frame", Frame); TrackBg.Size = UDim2.new(1, -20, 0, 8); TrackBg.Position = UDim2.new(0, 10, 0, 28); TrackBg.BackgroundColor3 = Color3.fromRGB(40, 40, 45); Instance.new("UICorner", TrackBg).CornerRadius = UDim.new(1, 0)
+    local Fill = Instance.new("Frame", TrackBg); Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0); Fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Instance.new("UICorner", Fill).CornerRadius = UDim.new(1, 0)
+    local Gradient = Instance.new("UIGradient", Fill); Gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, colorStart), ColorSequenceKeypoint.new(1, colorEnd)})
+    local Knob = Instance.new("Frame", Fill); Knob.Size = UDim2.new(0, 14, 0, 14); Knob.Position = UDim2.new(1, -7, 0.5, -7); Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Instance.new("UICorner", Knob).CornerRadius = UDim.new(1, 0)
+    
+    local dragging = false; local dragInput = nil 
+    local function update(input) local percent = math.clamp((input.Position.X - TrackBg.AbsolutePosition.X) / TrackBg.AbsoluteSize.X, 0, 1); local value = math.floor(min + (max - min) * percent); Fill.Size = UDim2.new(percent, 0, 1, 0); Label.Text = text .. ": " .. value; callback(value) end
+    Frame.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; dragInput = input; update(input); input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false; dragInput = nil end end) end end)
+    uis.InputChanged:Connect(function(input) if dragging and input == dragInput then update(input) end end)
+    return Frame
+end
 
--- =================== BẢNG CONTROLLER VÀ LOCATION (NỔI) ===================
 local MovePad = Instance.new("Frame", ScreenGui); MovePad.Size = UDim2.new(0, 190, 0, 195); MovePad.Position = UDim2.new(0.7, 0, 0.6, 0); MovePad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MovePad.BackgroundTransparency = 0.35; MovePad.Visible = false; MovePad.Active = true; MovePad.ClipsDescendants = true; Instance.new("UICorner", MovePad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(MovePad); MakeDraggable(MovePad)
 local MPTitle = Instance.new("TextLabel", MovePad); MPTitle.Size = UDim2.new(1, -30, 0, 28); MPTitle.Position = UDim2.new(0, 12, 0, 0); MPTitle.BackgroundTransparency = 1; MPTitle.Text = "CONTROLLER"; MPTitle.TextColor3 = Color3.fromRGB(180, 180, 190); MPTitle.Font = Enum.Font.GothamMedium; MPTitle.TextSize = 10; MPTitle.TextXAlignment = "Left"
 local PadGrid = Instance.new("Frame", MovePad); PadGrid.Size = UDim2.new(1, -12, 1, -34); PadGrid.Position = UDim2.new(0, 6, 0, 28); PadGrid.BackgroundTransparency = 1; local PGL = Instance.new("UIGridLayout", PadGrid); PGL.CellSize = UDim2.new(0.48, 0, 0, 32); PGL.CellPadding = UDim2.new(0.04, 0, 0, 6)
@@ -380,275 +419,220 @@ local MPMiniBtn = Instance.new("TextButton", MovePad); MPMiniBtn.Size = UDim2.ne
 MPMiniBtn.MouseButton1Click:Connect(function() local isEx = MovePad.Size.Y.Offset > 50; if isEx then PadGrid.Visible = false; MovePad:TweenSize(UDim2.new(0, 190, 0, 28), "Out", "Quart", 0.3, true); MPMiniBtn.Text = "▶" else PadGrid.Visible = true; MovePad:TweenSize(UDim2.new(0, 190, 0, 195), "Out", "Quart", 0.3, true); MPMiniBtn.Text = "▼" end end)
 local moves = {{"Tiến",Vector3.new(0,0,-1)},{"Lùi",Vector3.new(0,0,1)},{"Trái",Vector3.new(-1,0,0)},{"Phải",Vector3.new(1,0,0)},{"Lên",Vector3.new(0,1,0)},{"Xuống",Vector3.new(0,-1,0)}}
 for _, v in pairs(moves) do CreateBtn(PadGrid, v[1], function(s) if s then localMoveDir += v[2] else localMoveDir -= v[2] end end) end
-CreateBtn(PadGrid, "Tap Wall", function(s) tapWallActive = s end) 
-CreateBtn(PadGrid, "Mode: Theo Mặt", function(s) moveModeFace = s end, true) 
+CreateBtn(PadGrid, "Tap Wall", function(s) tapWallActive = s end); CreateBtn(PadGrid, "Mode: Face", function(s) moveModeFace = s end, true) 
 
 local LocationPad = Instance.new("Frame", ScreenGui); LocationPad.Size = UDim2.new(0, 190, 0, 150); LocationPad.Position = UDim2.new(0.2, 0, 0.4, 0); LocationPad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); LocationPad.BackgroundTransparency = 0.35; LocationPad.Visible = false; LocationPad.Active = true; LocationPad.ClipsDescendants = true; Instance.new("UICorner", LocationPad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(LocationPad); MakeDraggable(LocationPad)
 local LocMiniBtn = Instance.new("TextButton", LocationPad); LocMiniBtn.Size = UDim2.new(0, 28, 0, 28); LocMiniBtn.Position = UDim2.new(0, 5, 0, 0); LocMiniBtn.BackgroundTransparency = 1; LocMiniBtn.Text = "▼"; LocMiniBtn.TextColor3 = IOS_BLUE; LocMiniBtn.Font = Enum.Font.GothamMedium; LocMiniBtn.TextSize = 13
-local LocTitle = Instance.new("TextLabel", LocationPad); LocTitle.Size = UDim2.new(1, -70, 0, 28); LocTitle.Position = UDim2.new(0, 35, 0, 0); LocTitle.BackgroundTransparency = 1; LocTitle.Text = "BẢNG LOCATION"; LocTitle.TextColor3 = Color3.fromRGB(180, 180, 190); LocTitle.Font = Enum.Font.GothamMedium; LocTitle.TextSize = 10; LocTitle.TextXAlignment = "Left"
+local LocTitle = Instance.new("TextLabel", LocationPad); LocTitle.Size = UDim2.new(1, -70, 0, 28); LocTitle.Position = UDim2.new(0, 35, 0, 0); LocTitle.BackgroundTransparency = 1; LocTitle.Text = "LOCATION"; LocTitle.TextColor3 = Color3.fromRGB(180, 180, 190); LocTitle.Font = Enum.Font.GothamMedium; LocTitle.TextSize = 10; LocTitle.TextXAlignment = "Left"
 local LocCloseBtn = Instance.new("TextButton", LocationPad); LocCloseBtn.Size = UDim2.new(0, 28, 0, 28); LocCloseBtn.Position = UDim2.new(1, -30, 0, 0); LocCloseBtn.BackgroundTransparency = 1; LocCloseBtn.Text = "X"; LocCloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58); LocCloseBtn.Font = Enum.Font.GothamBold; LocCloseBtn.TextSize = 13
 local LocContent = Instance.new("Frame", LocationPad); LocContent.Size = UDim2.new(1, -12, 1, -34); LocContent.Position = UDim2.new(0, 6, 0, 28); LocContent.BackgroundTransparency = 1; local LCL = Instance.new("UIListLayout", LocContent); LCL.Padding = UDim.new(0, 6); LCL.HorizontalAlignment = Enum.HorizontalAlignment.Center
 LocMiniBtn.MouseButton1Click:Connect(function() local isEx = LocationPad.Size.Y.Offset > 28; if isEx then LocContent.Visible = false; LocationPad:TweenSize(UDim2.new(0, 190, 0, 28), "Out", "Quart", 0.3, true); LocMiniBtn.Text = "▶" else LocContent.Visible = true; LocationPad:TweenSize(UDim2.new(0, 190, 0, 150), "Out", "Quart", 0.3, true); LocMiniBtn.Text = "▼" end end)
-LocCloseBtn.MouseButton1Click:Connect(function() LocationPad.Visible = false; SendNotify("Hệ Thống", "Đã đóng Bảng Location", 1.5) end)
+LocCloseBtn.MouseButton1Click:Connect(function() LocationPad.Visible = false end)
 
-CreateBtn(LocContent, "Nhảy Vô Hạn (Inf Jump)", function(s) infJumpActive = s end)
-CreateBtn(LocContent, "Noclip (Xuyên tường Bypass)", function(s) noclipActive = s end)
-CreateInput(LocContent, "Tốc độ chạy (1-100)", "", function(val) 
-    if val == "" or tonumber(val) == nil then currentWalkSpeedLevel = 1; SendNotify("Hệ Thống", "Đã xóa số, khôi phục tốc độ Mặc Định", 2)
-    else local num = tonumber(val); local speedLevel = math.clamp(num, 1, 100); currentWalkSpeedLevel = speedLevel; SendNotify("Hệ Thống", "Tốc độ Bypass: Mức " .. speedLevel, 1.5) end 
-end)
+CreateBtn(LocContent, "Inf Jump", function(s) infJumpActive = s end)
+CreateBtn(LocContent, "Noclip", function(s) noclipActive = s end)
+CreateInput(LocContent, "Speed (1-100)", "", function(val) if val == "" or tonumber(val) == nil then currentWalkSpeedLevel = 1 else currentWalkSpeedLevel = math.clamp(tonumber(val), 1, 100) end end)
 
 -----------------------------------------------------------
--- [ TAB CHÍNH: THEO YÊU CẦU ƯU TIÊN VỊ TRÍ ]
+-- [ TAB 1: CHÍNH ]
 -----------------------------------------------------------
-CreateInput(ScrollMain, "Tốc độ Controller", tostring(currentSpeed), function(val) 
-    local newSp = tonumber(val)
-    if newSp then currentSpeed = newSp; SendNotify("Hệ Thống", "Tốc độ Controller: " .. newSp, 2) end 
-end)
+CreateBtn(ScrollMain, "Spin Bot", function(s) spinBotActive = s end)
+CreateSlider(ScrollMain, "Spin Bot Speed", 1, 100, 50, COLOR_RED, GRADIENT_PURPLE, function(val) currentSpinSpeed = val end)
+CreateBtn(ScrollMain, "Moonwalk", function(s) moonwalkActive = s end)
 
-CreateInput(ScrollMain, "Chỉnh Size Hitbox Đầu (1-500)", "100", function(val)
-    local num = tonumber(val)
-    if num then
-        currentHitboxSize = math.clamp(num, 1, 500)
-        SendNotify("Hitbox", "Đã chỉnh Size: " .. currentHitboxSize, 2)
-    end
-end)
-
-CreateBtn(ScrollMain, "Controller (Nổi)", function(s) MovePad.Visible = s end)
-CreateBtn(ScrollMain, "Bảng Location (Nổi)", function(s) LocationPad.Visible = s end)
-CreateBtn(ScrollMain, "Hiển Thị FPS", function(s) fpsActive = s; FpsPill.Visible = s end)
-CreateBtn(ScrollMain, "Nút Tách Hồn (Tròn Nổi)", function(s) GhostBtnFrame.Visible = s end)
-CreateBtn(ScrollMain, "Nút Reset (Tròn Nổi)", function(s) ResetBtnFrame.Visible = s end)
-CreateBtn(ScrollMain, "Nút Set Spawn (Tròn Nổi)", function(s) SpawnBtnFrame.Visible = s end)
-CreateBtn(ScrollMain, "Nút Back Pos (Tròn Nổi)", function(s) BackPosBtnFrame.Visible = s end)
+CreateInput(ScrollMain, "Controller Speed", tostring(currentSpeed), function(val) local newSp = tonumber(val); if newSp then currentSpeed = newSp; SendNotify("Cài Đặt", "Speed: " .. newSp, 1.2) end end)
+CreateBtn(ScrollMain, "Controller", function(s) MovePad.Visible = s end)
+CreateBtn(ScrollMain, "Location", function(s) LocationPad.Visible = s end)
+CreateBtn(ScrollMain, "Show FPS", function(s) fpsActive = s; FpsPill.Visible = s end)
+CreateBtn(ScrollMain, "Ghost Button", function(s) GhostBtnFrame.Visible = s end)
+CreateBtn(ScrollMain, "Reset Button", function(s) ResetBtnFrame.Visible = s end)
+CreateBtn(ScrollMain, "Spawn Button", function(s) SpawnBtnFrame.Visible = s end)
+CreateBtn(ScrollMain, "Back Pos Button", function(s) BackPosBtnFrame.Visible = s end)
 
 -----------------------------------------------------------
--- [ TAB TRANG 2: CÁC CHỨC NĂNG CHIẾN ĐẤU & COMBAT ]
+-- [ TAB 2: TRANG 2 & CHỨC NĂNG ẨN ]
 -----------------------------------------------------------
-CreateBtn(ScrollPage2, "Silent Aim (Bẻ Đạn/Wall Check)", function(s)
-    silentAimActive = s
-    if s then SendNotify("Silent Aim", "Đã bật bẻ tia đạn! Ưu tiên không vật cản.", 2.5) 
-    else SendNotify("Silent Aim", "Đã tắt.", 1.5) end
+local hiddenFeaturesList = {}
+
+CreateBtn(ScrollPage2, "Target Fling Mode", function(s)
+    flingModeActive = s
+    if not s then for p, gui in pairs(flingGuis) do if gui then gui:Destroy() end end; flingGuis = {} end
 end)
 
-CreateBtn(ScrollPage2, "Hitbox Đầu Cột (Tàng Hình/AoE)", function(s)
-    hitboxActive = s
-    if not s then
-        for _, v in pairs(game.Players:GetPlayers()) do
-            if v ~= lp and v.Character and v.Character:FindFirstChild("Head") then
-                local head = v.Character.Head
-                head.Size = Vector3.new(1.2, 1.2, 1.2)
-                head.Transparency = 0
-                head.CanCollide = true
-                head.Massless = false
-            end
-        end
-        SendNotify("Hitbox Đầu", "Đã khôi phục đầu mặc định!", 2)
-    else
-        SendNotify("Hitbox Đầu", "Hitbox cột tàng hình đã bật! Tự bẻ đạn trúng đích!", 3)
-    end
-end)
-
-CreateBtn(ScrollPage2, "Góc Nhìn Thứ 3 (Mở Khóa Cam)", function(s)
-    thirdPersonActive = s
-    if s then
-        lp.CameraMaxZoomDistance = 128
-        lp.CameraMinZoomDistance = 0.5
-        SendNotify("Camera", "Đã phá vỡ giới hạn góc nhìn thứ 1!", 2)
-    else
-        SendNotify("Camera", "Đã tắt ép góc nhìn.", 1.5)
-    end
-end)
-
-CreateBtn(ScrollPage2, "Spin Bot 360", function(s) 
-    spinBotActive = s 
-    local char = lp.Character
-    if char and char:FindFirstChild("Humanoid") then
-        if s then char.Humanoid.AutoRotate = false else char.Humanoid.AutoRotate = true end
-    end
+CreateBtn(ScrollPage2, "Mở Chức Năng Ẩn", function(s)
+    for _, feature in pairs(hiddenFeaturesList) do feature.Visible = s end
+    if s then ScrollPage2.CanvasSize = UDim2.new(0, 0, 0, 750) else ScrollPage2.CanvasSize = UDim2.new(0, 0, 0, 480) end
 end)
 
 local function applyGodMode1(char)
-    if not char then return end
-    local hum = char:WaitForChild("Humanoid", 3)
-    local hrp = char:WaitForChild("HumanoidRootPart", 3)
-    if not hum then return end
-    if godModeConn then godModeConn:Disconnect(); godModeConn = nil end
-    if loopHealConn then loopHealConn:Disconnect(); loopHealConn = nil end
-    if antiVoidConn then antiVoidConn:Disconnect(); antiVoidConn = nil end
-    hum.MaxHealth = math.huge
-    hum.Health = math.huge
-    godModeConn = hum:GetPropertyChangedSignal("Health"):Connect(function()
-        if godMode1Active then hum.Health = hum.MaxHealth end
-    end)
-    loopHealConn = runService.Heartbeat:Connect(function()
-        if godMode1Active and hum and hum.Parent then hum.Health = hum.MaxHealth end
-    end)
-    if hrp then
-        antiVoidConn = runService.Heartbeat:Connect(function()
-            if godMode1Active and hrp and hrp.Parent then
-                if hrp.Position.Y < -200 then hrp.CFrame = CFrame.new(hrp.Position.X, 100, hrp.Position.Z); hrp.Velocity = Vector3.zero end
-            end
-        end)
-    end
-    pcall(function()
-        local dMod = rs:FindFirstChild("Effect") and rs.Effect:FindFirstChild("Container") and rs.Effect.Container:FindFirstChild("Death")
-        if dMod then hookfunction(require(dMod), function() end) end
-    end)
+    if not char then return end; local hum = char:WaitForChild("Humanoid", 3); local hrp = char:WaitForChild("HumanoidRootPart", 3); if not hum then return end
+    if godModeConn then godModeConn:Disconnect(); godModeConn = nil end; if loopHealConn then loopHealConn:Disconnect(); loopHealConn = nil end; if antiVoidConn then antiVoidConn:Disconnect(); antiVoidConn = nil end
+    hum.MaxHealth = math.huge; hum.Health = math.huge
+    godModeConn = hum:GetPropertyChangedSignal("Health"):Connect(function() if godMode1Active then hum.Health = hum.MaxHealth end end)
+    loopHealConn = runService.Heartbeat:Connect(function() if godMode1Active and hum and hum.Parent then hum.Health = hum.MaxHealth end end)
+    if hrp then antiVoidConn = runService.Heartbeat:Connect(function() if godMode1Active and hrp and hrp.Parent then if hrp.Position.Y < -200 and not isFlinging then hrp.CFrame = CFrame.new(hrp.Position.X, 100, hrp.Position.Z); hrp.Velocity = Vector3.zero end end end) end
+    pcall(function() local dMod = rs:FindFirstChild("Effect") and rs.Effect:FindFirstChild("Container") and rs.Effect.Container:FindFirstChild("Death"); if dMod then hookfunction(require(dMod), function() end) end end)
 end
 
-CreateBtn(ScrollPage2, "God Mode 1 (Blox Fruits)", function(s)
-    godMode1Active = s
-    if s then
-        if lp.Character then applyGodMode1(lp.Character) end
-        if charAddedConn then charAddedConn:Disconnect() end
-        charAddedConn = lp.CharacterAdded:Connect(function(char)
-            task.wait(1.5); if godMode1Active then applyGodMode1(char) end
-        end)
-    else
-        if godModeConn then godModeConn:Disconnect(); godModeConn = nil end
-        if loopHealConn then loopHealConn:Disconnect(); loopHealConn = nil end
-        if antiVoidConn then antiVoidConn:Disconnect(); antiVoidConn = nil end
-        if charAddedConn then charAddedConn:Disconnect(); charAddedConn = nil end
-    end
-end)
+CreateBtn(ScrollPage2, "God Mode 1", function(s) godMode1Active = s; if s then if lp.Character then applyGodMode1(lp.Character) end; if charAddedConn then charAddedConn:Disconnect() end; charAddedConn = lp.CharacterAdded:Connect(function(char) task.wait(1.5); if godMode1Active then applyGodMode1(char) end end) else if godModeConn then godModeConn:Disconnect(); godModeConn = nil end; if loopHealConn then loopHealConn:Disconnect(); loopHealConn = nil end; if antiVoidConn then antiVoidConn:Disconnect(); antiVoidConn = nil end; if charAddedConn then charAddedConn:Disconnect(); charAddedConn = nil end end end)
 
-CreateBtn(ScrollPage2, "God Mode 2 (Xóa Humanoid)", function(s)
-    godMode2Active = s
-    local char = lp.Character
+CreateBtn(ScrollPage2, "God Mode 2", function(s)
+    godMode2Active = s; local char = lp.Character
     if s then
         if char and char:FindFirstChild("Humanoid") then
-            local hum = char.Humanoid
-            local clone = hum:Clone()
-            clone.Parent = char
-            hum:Destroy()
-            workspace.CurrentCamera.CameraSubject = clone
-            if char:FindFirstChild("Animate") then char.Animate.Disabled = true; task.wait(); char.Animate.Disabled = false end
-            SendNotify("God Mode 2", "Đã tạo Humanoid giả! (Bypass)", 3)
+            local oldHum = char:FindFirstChild("Humanoid"); local ff = char:FindFirstChildOfClass("ForceField"); if ff then ff:Destroy() end
+            local clone = oldHum:Clone(); clone.Name = "Humanoid"; clone.Parent = char; workspace.CurrentCamera.CameraSubject = clone; oldHum:Destroy()
+            local oldAnim = char:FindFirstChild("Animate"); if oldAnim then local newAnim = oldAnim:Clone(); oldAnim:Destroy(); newAnim.Parent = char end
         end
-    else
-        SendNotify("God Mode 2", "Đã tắt! Vui lòng Reset nhân vật để khôi phục.", 3)
     end
 end)
 
 local function applyGodMode3(char)
-    if not char then return end
-    local hum = char:WaitForChild("Humanoid", 3)
-    if not hum then return end
-    
+    if not char then return end; local hum = char:WaitForChild("Humanoid", 3); if not hum then return end
     if godMode3Conn then godMode3Conn:Disconnect(); godMode3Conn = nil end
-    
-    hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-    hum.BreakJointsOnDeath = false
-    
-    local ff = char:FindFirstChildOfClass("ForceField") or Instance.new("ForceField", char)
-    ff.Visible = false
-
-    hum.MaxHealth = math.huge
-    hum.Health = math.huge
-
-    godMode3Conn = runService.Heartbeat:Connect(function()
-        if godMode3Active and hum and hum.Parent then
-            if hum.Health < hum.MaxHealth then
-                hum.Health = hum.MaxHealth
-            end
-            if hum:GetState() == Enum.HumanoidStateType.Dead then
-                hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-            end
-            local creator = hum:FindFirstChild("creator")
-            if creator then creator:Destroy() end
-        end
-    end)
-    SendNotify("God Mode 3", "Cường hóa khiên ForceField & Chống tử vong tuyệt đối!", 3)
+    hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false); hum.BreakJointsOnDeath = false
+    local ff = char:FindFirstChildOfClass("ForceField") or Instance.new("ForceField", char); ff.Visible = false; hum.MaxHealth = math.huge; hum.Health = math.huge
+    godMode3Conn = runService.Heartbeat:Connect(function() if godMode3Active and hum and hum.Parent then if hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end; if hum:GetState() == Enum.HumanoidStateType.Dead then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end; local creator = hum:FindFirstChild("creator"); if creator then creator:Destroy() end end end)
 end
 
-CreateBtn(ScrollPage2, "God Mode 3 (Bất Tử Hoàn Toàn)", function(s)
-    godMode3Active = s
+CreateBtn(ScrollPage2, "God Mode 3", function(s) godMode3Active = s; if s then if lp.Character then applyGodMode3(lp.Character) end; if charAddedConn then charAddedConn:Disconnect() end; charAddedConn = lp.CharacterAdded:Connect(function(char) task.wait(1.5); if godMode3Active then applyGodMode3(char) end end) else if godMode3Conn then godMode3Conn:Disconnect(); godMode3Conn = nil end; if charAddedConn then charAddedConn:Disconnect(); charAddedConn = nil end; if lp.Character then local ff = lp.Character:FindFirstChildOfClass("ForceField"); if ff then ff:Destroy() end; local hum = lp.Character:FindFirstChild("Humanoid"); if hum then hum:SetStateEnabled(Enum.HumanoidStateType.Dead, true); hum.MaxHealth = 100; hum.Health = 100 end end end end)
+CreateBtn(ScrollPage2, "Lock Position", function(s) ghimActive = s; if s and lp.Character then lockedPos = lp.Character.HumanoidRootPart.CFrame end end)
+
+-- ================= CÁC CHỨC NĂNG ẨN =================
+
+local f1 = CreateBtn(ScrollPage2, "No Recoil", function(s)
+    noRecoilActive = s
     if s then
-        if lp.Character then applyGodMode3(lp.Character) end
-        if charAddedConn then charAddedConn:Disconnect() end
-        charAddedConn = lp.CharacterAdded:Connect(function(char)
-            task.wait(1.5); if godMode3Active then applyGodMode3(char) end
+        task.spawn(function()
+            pcall(function() for _, v in pairs(getgc(true)) do if type(v) == "table" and rawget(v, "Recoil") ~= nil then rawset(v, "Recoil", 0); if rawget(v, "MaxSpread") ~= nil then rawset(v, "MaxSpread", 0) end; if rawget(v, "CameraKick") ~= nil then rawset(v, "CameraKick", 0) end end end end)
         end)
-    else
-        if godMode3Conn then godMode3Conn:Disconnect(); godMode3Conn = nil end
-        if charAddedConn then charAddedConn:Disconnect(); charAddedConn = nil end
-        if lp.Character then 
-            local ff = lp.Character:FindFirstChildOfClass("ForceField")
-            if ff then ff:Destroy() end
-            if lp.Character:FindFirstChild("Humanoid") then
-                lp.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
-                lp.Character.Humanoid.MaxHealth = 100
-                lp.Character.Humanoid.Health = 100
+    end
+end); f1.Visible = false; table.insert(hiddenFeaturesList, f1)
+
+local f2 = CreateBtn(ScrollPage2, "Silent Aim", function(s) silentAimActive = s end)
+f2.Visible = false; table.insert(hiddenFeaturesList, f2)
+
+local f3 = CreateSlider(ScrollPage2, "Headshot Rate", 0, 100, 100, IOS_BLUE, GRADIENT_PURPLE, function(val) silentAimHeadshotRate = val end)
+f3.Visible = false; table.insert(hiddenFeaturesList, f3)
+
+local f4 = CreateBtn(ScrollPage2, "Third Person Camera", function(s)
+    thirdPersonActive = s
+    if s then lp.CameraMode = Enum.CameraMode.Classic; lp.CameraMinZoomDistance = 15; lp.CameraMaxZoomDistance = 128
+    else lp.CameraMinZoomDistance = 0.5 end
+end); f4.Visible = false; table.insert(hiddenFeaturesList, f4)
+
+local f5 = CreateBtn(ScrollPage2, "Hitbox", function(s)
+    hitboxActive = s
+    if not s then
+        for _, v in pairs(game.Players:GetPlayers()) do if v ~= lp and v.Character and v.Character:FindFirstChild("Head") then v.Character.Head.Size = Vector3.new(1.2, 1.2, 1.2); v.Character.Head.Transparency = 0; v.Character.Head.CanCollide = true; v.Character.Head.Massless = false end end
+    end
+end); f5.Visible = false; table.insert(hiddenFeaturesList, f5)
+
+local f6 = CreateSlider(ScrollPage2, "Hitbox Size", 1, 500, 100, COLOR_PINK, IOS_BLUE, function(val) currentHitboxSize = val end)
+f6.Visible = false; table.insert(hiddenFeaturesList, f6)
+
+task.spawn(function()
+    while task.wait(1) do
+        if hitboxActive then
+            for _, v in pairs(game.Players:GetPlayers()) do
+                if v ~= lp and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
+                    local head = v.Character.Head
+                    if head.Size.Y ~= currentHitboxSize * 2.5 then
+                        head.Size = Vector3.new(currentHitboxSize, currentHitboxSize * 2.5, currentHitboxSize)
+                        head.Transparency = 1; head.CanCollide = false; head.Massless = true 
+                        if not head:FindFirstChild("VuKhoa_Hitbox_Tag") then head.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0); local tag = Instance.new("BoolValue", head); tag.Name = "VuKhoa_Hitbox_Tag" end
+                    end
+                end
             end
         end
-        SendNotify("God Mode 3", "Đã tắt trạng thái bất tử tuyệt đối.", 3)
     end
 end)
 
-CreateBtn(ScrollPage2, "Ghim Vị Trí", function(s) ghimActive = s; if s and lp.Character then lockedPos = lp.Character.HumanoidRootPart.CFrame end end)
+-- UI Fling Thông Minh (Scale theo CFrame)
+task.spawn(function()
+    while task.wait(0.1) do
+        if flingModeActive then
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= lp and p.Character and p.Character:FindFirstChild("Head") then
+                    local head = p.Character.Head
+                    local bgui = flingGuis[p]
+                    if not bgui then
+                        bgui = Instance.new("BillboardGui")
+                        bgui.Name = "VuKhoa_FlingGui"
+                        bgui.Adornee = head
+                        bgui.AlwaysOnTop = true
+                        bgui.Active = true
+                        bgui.MaxDistance = 500
+                        
+                        local btn = Instance.new("TextButton", bgui)
+                        btn.Size = UDim2.new(1, 0, 1, 0)
+                        btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                        btn.Text = "🎯 FLING"
+                        btn.TextColor3 = Color3.new(1, 1, 1)
+                        btn.Font = Enum.Font.GothamBold
+                        btn.TextScaled = true 
+                        btn.Active = true
+                        
+                        Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
+                        
+                        local grad = Instance.new("UIGradient", btn)
+                        grad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, COLOR_RED), ColorSequenceKeypoint.new(1, COLOR_ORANGE)})
+                        
+                        local str = Instance.new("UIStroke", btn)
+                        str.Thickness = 1.5; str.Color = Color3.new(1,1,1); str.Transparency = 0.4
+                        
+                        btn.InputBegan:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                                if not isFlinging then task.spawn(function() FlingPlayer(p) end) end
+                            end
+                        end)
+                        
+                        bgui.Parent = coreGui; flingGuis[p] = bgui
+                    end
+                    
+                    local dist = (cam.CFrame.Position - head.Position).Magnitude
+                    local scale = math.clamp(1400 / math.max(dist, 20), 45, 90)
+                    bgui.Size = UDim2.new(0, scale, 0, scale * 0.35)
+                    bgui.StudsOffset = Vector3.new(0, 1.5 + (scale/60), 0)
+                elseif flingGuis[p] then
+                    flingGuis[p]:Destroy(); flingGuis[p] = nil
+                end
+            end
+        else
+            for p, gui in pairs(flingGuis) do if gui then gui:Destroy() end end
+            flingGuis = {}
+        end
+    end
+end)
+
+game.Players.PlayerRemoving:Connect(function(p) if flingGuis[p] then flingGuis[p]:Destroy(); flingGuis[p] = nil end end)
 
 -----------------------------------------------------------
 --- [[ TÍNH NĂNG TAB ESP ]] 
 -----------------------------------------------------------
-CreateBtn(ScrollESP, "ESP Line (Đường thẳng)", function(s) espLineActive = s end)
-CreateBtn(ScrollESP, "ESP Box (Khung hình)", function(s) espBoxActive = s end)
-CreateBtn(ScrollESP, "ESP Count (Đếm người)", function(s) espCountActive = s; CountPill.Visible = s end)
-CreateBtn(ScrollESP, "Xray Chams (Highlight)", function(s) xrayActive = s end)
+CreateBtn(ScrollESP, "ESP Line", function(s) espLineActive = s end)
+CreateBtn(ScrollESP, "ESP Box", function(s) espBoxActive = s end)
+CreateBtn(ScrollESP, "ESP Count", function(s) espCountActive = s; CountPill.Visible = s end)
+CreateBtn(ScrollESP, "Xray Chams", function(s) xrayActive = s end)
 
--- ================= LOGIC NÚT MỞ MENU MỚI =================
-local OpenBtn = Instance.new("ImageButton", ScreenGui)
-OpenBtn.Size = UDim2.new(0, 50, 0, 50)
-OpenBtn.Position = UDim2.new(1, -65, 0.5, -27)
-OpenBtn.BackgroundTransparency = 1 
-OpenBtn.Image = ASSET_ID
-OpenBtn.Visible = false
-MakeDraggable(OpenBtn)
-
-MiniBtn.MouseButton1Click:Connect(function() 
-    local isEx = MainFrame.Size.Y.Offset == 480; 
-    if isEx then 
-        ScrollMain.Visible = false; ScrollPage2.Visible = false; ScrollESP.Visible = false; TabBar.Visible = false; 
-        MainFrame:TweenSize(UDim2.new(0, 240, 0, 40), "Out", "Quart", 0.35, true); 
-        MiniBtn.Text = "▶" 
-    else 
-        TabBar.Visible = true; 
-        if TabMainBtn.TextColor3 == IOS_BLUE then ScrollMain.Visible = true 
-        elseif TabPage2Btn.TextColor3 == IOS_BLUE then ScrollPage2.Visible = true
-        else ScrollESP.Visible = true end; 
-        MainFrame:TweenSize(UDim2.new(0, 240, 0, 480), "Out", "Quart", 0.35, true); 
-        MiniBtn.Text = "▼" 
-    end 
-end)
-
+local OpenBtn = Instance.new("ImageButton", ScreenGui); OpenBtn.Size = UDim2.new(0, 50, 0, 50); OpenBtn.Position = UDim2.new(1, -65, 0.5, -27); OpenBtn.BackgroundTransparency = 1; OpenBtn.Image = ASSET_ID; OpenBtn.Visible = false; MakeDraggable(OpenBtn)
+MiniBtn.MouseButton1Click:Connect(function() local isEx = MainFrame.Size.Y.Offset == 480; if isEx then ScrollMain.Visible = false; ScrollPage2.Visible = false; ScrollESP.Visible = false; TabBar.Visible = false; MainFrame:TweenSize(UDim2.new(0, 240, 0, 40), "Out", "Quart", 0.35, true); MiniBtn.Text = "▶" else TabBar.Visible = true; if TabMainBtn.TextColor3 == IOS_BLUE then ScrollMain.Visible = true elseif TabPage2Btn.TextColor3 == IOS_BLUE then ScrollPage2.Visible = true else ScrollESP.Visible = true end; MainFrame:TweenSize(UDim2.new(0, 240, 0, 480), "Out", "Quart", 0.35, true); MiniBtn.Text = "▼" end end)
 local function ToggleMenu() MainFrame.Visible = not MainFrame.Visible; OpenBtn.Visible = not MainFrame.Visible end
 CloseBtn.MouseButton1Click:Connect(ToggleMenu); OpenBtn.MouseButton1Click:Connect(ToggleMenu)
 
--- [[ LOGIC CHUẨN: TRỊ TẬN GỐC LỖI LIỆT NÚT NHẢY ]]
 uis.JumpRequest:Connect(function()
-    if ghostActive and ghostModel and ghostModel:FindFirstChild("Humanoid") then
+    if isFlinging then return end
+    if ghostActive and ghostModel then
         local gHum = ghostModel:FindFirstChild("Humanoid")
-        gHum:ChangeState(Enum.HumanoidStateType.Jumping)
-        local gRoot = ghostModel:FindFirstChild("HumanoidRootPart")
-        if gRoot then gRoot.Velocity = Vector3.new(gRoot.Velocity.X, gHum.JumpPower or 50, gRoot.Velocity.Z) end
+        if gHum then gHum:ChangeState(Enum.HumanoidStateType.Jumping); local gRoot = ghostModel:FindFirstChild("HumanoidRootPart"); if gRoot then gRoot.Velocity = Vector3.new(gRoot.Velocity.X, gHum.JumpPower or 50, gRoot.Velocity.Z) end end
         return
     end
-    
-    local char = lp.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hum or not hrp then return end
-
+    local char = lp.Character; if not char then return end
+    local hum = char:FindFirstChild("Humanoid"); local hrp = char:FindFirstChild("HumanoidRootPart"); if not hum or not hrp then return end
     if infJumpActive then
-        hum:ChangeState(Enum.HumanoidStateType.Jumping)
-        hrp.Velocity = Vector3.new(hrp.Velocity.X, hum.JumpPower or 50, hrp.Velocity.Z)
+        hum:ChangeState(Enum.HumanoidStateType.Jumping); hrp.Velocity = Vector3.new(hrp.Velocity.X, hum.JumpPower or 50, hrp.Velocity.Z)
     else
-        local currentState = hum:GetState()
-        if currentState ~= Enum.HumanoidStateType.Jumping and currentState ~= Enum.HumanoidStateType.Freefall then
-            hum:ChangeState(Enum.HumanoidStateType.Jumping)
-            hrp.Velocity = Vector3.new(hrp.Velocity.X, hum.JumpPower or 50, hrp.Velocity.Z)
-        end
+        if hum.FloorMaterial ~= Enum.Material.Air or hum:GetState() ~= Enum.HumanoidStateType.Freefall then hum:ChangeState(Enum.HumanoidStateType.Jumping); hrp.Velocity = Vector3.new(hrp.Velocity.X, hum.JumpPower or 50, hrp.Velocity.Z) end
     end
 end)
 
@@ -657,7 +641,7 @@ uis.InputBegan:Connect(function(input, gpe)
     if tapWallActive and not gpe and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
         local pos = input.Position; local ray = cam:ScreenPointToRay(pos.X, pos.Y); local params = RaycastParams.new(); params.FilterDescendantsInstances = {lp.Character, ghostModel}; params.FilterType = Enum.RaycastFilterType.Exclude
         local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, params)
-        if result and result.Instance then local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart"); if root then local destPos = result.Position + (ray.Direction.Unit * 8); local safeResult = workspace:Raycast(destPos + Vector3.new(0,10,0), Vector3.new(0,-30,0), params); if safeResult then root.CFrame = CFrame.new(safeResult.Position + Vector3.new(0, 3.5, 0)) else root.CFrame = CFrame.new(destPos.X, root.Position.Y, destPos.Z) end; SendNotify("Tap Wall", "Xuyên tường thành công!", 1.5) end end
+        if result and result.Instance then local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart"); if root then local destPos = result.Position + (ray.Direction.Unit * 8); local safeResult = workspace:Raycast(destPos + Vector3.new(0,10,0), Vector3.new(0,-30,0), params); if safeResult then root.CFrame = CFrame.new(safeResult.Position + Vector3.new(0, 3.5, 0)) else root.CFrame = CFrame.new(destPos.X, root.Position.Y, destPos.Z) end end end
     end
     if input.UserInputType == Enum.UserInputType.Touch then activeTouches[input] = os.clock(); task.delay(0.05, function() local count, minT, maxT = 0, math.huge, 0; for _, t in pairs(activeTouches) do count = count + 1; minT = math.min(minT, t); maxT = math.max(maxT, t) end; if (maxT - minT) <= 0.25 then if count == 3 then ToggleMenu(); activeTouches = {} elseif count == 4 then OpenBtn.Visible = not OpenBtn.Visible; activeTouches = {} end end end) end
 end)
@@ -665,247 +649,166 @@ uis.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputT
 
 local function getESP(p) if not espCache[p] then local data = {}; data.Box = Instance.new("Frame", ESPLayer); data.Box.BackgroundTransparency = 1; data.Box.Visible = false; local st = Instance.new("UIStroke", data.Box); st.Color = IOS_BLUE; st.Thickness = 1.5; data.Line = Instance.new("Frame", ESPLayer); data.Line.BackgroundColor3 = IOS_BLUE; data.Line.BorderSizePixel = 0; data.Line.AnchorPoint = Vector2.new(0.5, 0.5); data.Line.Visible = false; espCache[p] = data end return espCache[p] end
 
--- [[ XỬ LÝ VẬT LÝ TUYỆT ĐỐI CHO HITBOX TRÁNH VĂNG GAME ]]
 runService.Stepped:Connect(function()
+    if isFlinging then return end
+    if noclipActive or localMoveDir.Magnitude > 0 then
+        for i = 1, #charPartsCache do if charPartsCache[i] and charPartsCache[i].Parent then charPartsCache[i].CanCollide = false end end
+    end
+    
     local char = lp.Character
     if char then
-        if noclipActive or localMoveDir.Magnitude > 0 then
-            for _, v in pairs(char:GetDescendants()) do
-                if v:IsA("BasePart") then v.CanCollide = false end
-            end
-        end
-        
-        -- Anti-Fling & Anti-Void Toàn Cầu
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if hrp then
             local pos = hrp.Position
-            if pos.Y < -200 or pos.Y > 5000 or math.abs(pos.X) > 20000 or math.abs(pos.Z) > 20000 then
-                hrp.Velocity = Vector3.zero
-                hrp.CFrame = CFrame.new(0, 100, 0)
-                if os.clock() - lastFlingRescue > 2 then
-                    lastFlingRescue = os.clock()
-                    SendNotify("Anti-Fling", "Phát hiện bị văng vút! Đã kéo bạn về an toàn.", 2)
-                end
-            end
-        end
-    end
-
-    if hitboxActive then
-        for _, p in pairs(game.Players:GetPlayers()) do
-            if p ~= lp and p.Character and p.Character:FindFirstChild("Head") then
-                p.Character.Head.CanCollide = false
-            end
+            if pos.Y < -200 or pos.Y > 5000 or math.abs(pos.X) > 20000 or math.abs(pos.Z) > 20000 then hrp.Velocity = Vector3.zero; hrp.CFrame = CFrame.new(0, 100, 0) end
         end
     end
 end)
 
--- MAIN LOOP
 local lastTick, fCount = os.clock(), 0
-SendNotify("Vũ Khoa V31", "Hệ thống bảo vệ đã chạy ngầm!", 4)
 
 runService.RenderStepped:Connect(function(dt)
     local cur = os.clock()
     if fpsActive then fCount = fCount + 1; if cur - lastTick >= 1 then FpsLabel.Text = "FPS: " .. fCount; fCount = 0; lastTick = cur end end
     
-    if thirdPersonActive then
-        lp.CameraMaxZoomDistance = 128
-        lp.CameraMinZoomDistance = 0.5
-    end
-
-    -- CHẠY CACHE QUÉT SILENT AIM 
-    if silentAimActive then
-        currentSilentAimTarget = getNearestTarget()
-    else
-        currentSilentAimTarget = nil
-    end
-
-    -- Vòng lặp cập nhật Hitbox Đầu Kéo Dài (Cột)
-    if hitboxActive then
-        for _, v in pairs(game.Players:GetPlayers()) do
-            if v ~= lp and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
-                local head = v.Character.Head
-                head.Size = Vector3.new(currentHitboxSize, currentHitboxSize * 2.5, currentHitboxSize)
-                head.Transparency = 1 
-                head.CanCollide = false 
-                head.Massless = true 
-                if not head:FindFirstChild("VuKhoa_Hitbox_Tag") then
-                    head.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
-                    local tag = Instance.new("BoolValue", head)
-                    tag.Name = "VuKhoa_Hitbox_Tag"
-                end
-            end
-        end
-    end
+    if thirdPersonActive then lp.CameraMode = Enum.CameraMode.Classic; lp.CameraMinZoomDistance = 15 end
     
     local char = lp.Character; if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local realHum = char:FindFirstChild("Humanoid"); local target = char.HumanoidRootPart; local currentHum = realHum
     
-    -- Xử lý Hồn
-    local realHum = char:FindFirstChild("Humanoid")
+    if isFlinging then return end
+    
+    if currentHum then
+        currentHum.AutoRotate = not (spinBotActive or moonwalkActive)
+    end
+    
     if ghostActive and ghostModel and realHum then
-        local ghostRoot = ghostModel:FindFirstChild("HumanoidRootPart")
-        local ghostHum = ghostModel:FindFirstChild("Humanoid")
+        local ghostRoot = ghostModel:FindFirstChild("HumanoidRootPart"); local ghostHum = ghostModel:FindFirstChild("Humanoid")
         if ghostRoot and ghostHum then
             local moveDir = realHum.MoveDirection
             if moveDir.Magnitude > 0 then
                 ghostHum:Move(moveDir, false)
-                if currentWalkSpeedLevel > 1 then
+                if currentWalkSpeedLevel > 1 then 
                     local speedMultiplier = (currentWalkSpeedLevel * 25) * dt
                     local flatDir = Vector3.new(moveDir.X, 0, moveDir.Z)
-                    ghostRoot.CFrame = ghostRoot.CFrame + (flatDir * speedMultiplier)
+                    ghostRoot.CFrame = ghostRoot.CFrame + (flatDir * speedMultiplier) 
                 end
                 local flatDir = Vector3.new(moveDir.X, 0, moveDir.Z)
-                if flatDir.Magnitude > 0.001 then
-                    ghostRoot.CFrame = CFrame.lookAt(ghostRoot.Position, ghostRoot.Position + flatDir)
-                end
+                if flatDir.Magnitude > 0.001 then 
+                    if moonwalkActive then
+                        ghostRoot.CFrame = CFrame.lookAt(ghostRoot.Position, ghostRoot.Position - flatDir) 
+                    else
+                        ghostRoot.CFrame = CFrame.lookAt(ghostRoot.Position, ghostRoot.Position + flatDir) 
+                    end
+                end 
+            else
+                ghostHum:Move(Vector3.zero, false)
+                ghostRoot.Velocity = Vector3.new(0, ghostRoot.Velocity.Y, 0)
             end
         end
     end
-    
-    local target = char.HumanoidRootPart
-    local currentHum = realHum
     
     if currentHum and not ghostActive then
         if currentHum.WalkSpeed < 16 then currentHum.WalkSpeed = 16 end
-        
-        if currentWalkSpeedLevel > 1 and localMoveDir.Magnitude == 0 and currentHum.MoveDirection.Magnitude > 0 then
-            local speedMultiplier = (currentWalkSpeedLevel * 25) * dt
-            target.CFrame = target.CFrame + (currentHum.MoveDirection * speedMultiplier)
-            for _, track in pairs(currentHum:GetPlayingAnimationTracks()) do track:AdjustSpeed(0.25) end
-        end
-        
-        if currentHum.JumpPower < 50 then currentHum.JumpPower = 50 end
-        currentHum.Sit = false
+        if currentWalkSpeedLevel > 1 and localMoveDir.Magnitude == 0 and currentHum.MoveDirection.Magnitude > 0 then local speedMultiplier = (currentWalkSpeedLevel * 25) * dt; target.CFrame = target.CFrame + (currentHum.MoveDirection * speedMultiplier); for _, track in pairs(currentHum:GetPlayingAnimationTracks()) do track:AdjustSpeed(0.25) end end
+        if currentHum.JumpPower < 50 then currentHum.JumpPower = 50 end; currentHum.Sit = false
     end
     
-    for _, v in pairs(target.Parent:GetDescendants()) do
-        if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.Anchored then v.Anchored = false end
-    end
+    for _, v in pairs(target.Parent:GetDescendants()) do if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.Anchored then v.Anchored = false end end
 
-    -- LOGIC CONTROLLER
     if not ghostActive then
         local joystickDir = currentHum and currentHum.MoveDirection or Vector3.zero
+        local isControllerMoving = localMoveDir.Magnitude > 0
+        local mv = Vector3.zero
         
-        if localMoveDir.Magnitude > 0 or (moveModeFace and joystickDir.Magnitude > 0 and localMoveDir.Magnitude > 0) then
+        if isControllerMoving then
             if not wasMoving then wasMoving = true end
-
-            local bv = target:FindFirstChild("VuKhoa_Fly") or Instance.new("BodyVelocity")
-            bv.Name = "VuKhoa_Fly"
-            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            
-            local mv = Vector3.zero
+            local bv = target:FindFirstChild("VuKhoa_Fly") or Instance.new("BodyVelocity"); bv.Name = "VuKhoa_Fly"; bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
             if moveModeFace then
-                local camLook = cam.CFrame.LookVector
-                local camRight = cam.CFrame.RightVector
-                local fwd = Vector3.new(camLook.X, 0, camLook.Z).Unit
-                local rht = Vector3.new(camRight.X, 0, camRight.Z).Unit
+                local camLook = cam.CFrame.LookVector; local camRight = cam.CFrame.RightVector; local fwd = Vector3.new(camLook.X, 0, camLook.Z).Unit; local rht = Vector3.new(camRight.X, 0, camRight.Z).Unit
                 if fwd.Magnitude < 0.001 then fwd = Vector3.new(0,0,-1); rht = Vector3.new(1,0,0) end
-                
-                local uiMv = (fwd * -localMoveDir.Z) + (rht * localMoveDir.X) + (Vector3.new(0,1,0) * localMoveDir.Y)
-                mv = uiMv + joystickDir
+                mv = (fwd * -localMoveDir.Z) + (rht * localMoveDir.X) + (Vector3.new(0,1,0) * localMoveDir.Y) + joystickDir
             else
-                local fwd = Vector3.new(0, 0, -1); local rht = Vector3.new(1, 0, 0)
-                mv = (fwd * -localMoveDir.Z) + (rht * localMoveDir.X) + (Vector3.new(0,1,0) * localMoveDir.Y)
+                local fwd = Vector3.new(0, 0, -1); local rht = Vector3.new(1, 0, 0); mv = (fwd * -localMoveDir.Z) + (rht * localMoveDir.X) + (Vector3.new(0,1,0) * localMoveDir.Y)
             end
-            
-            lastMv = mv
-            
-            if mv.Magnitude > 0 then bv.Velocity = mv.Unit * (currentSpeed * 50) else bv.Velocity = Vector3.zero end
-            bv.Parent = target
-            
-            local bg = target:FindFirstChild("VuKhoa_Gyro") or Instance.new("BodyGyro")
-            bg.Name = "VuKhoa_Gyro"; bg.P = 50000
-            
-            if moveModeFace then
-                bg.MaxTorque = Vector3.new(math.huge, 0, math.huge)
-                bg.CFrame = CFrame.new() 
-                if mv.X ~= 0 or mv.Z ~= 0 then
-                    local flatMv = Vector3.new(mv.X, 0, mv.Z)
-                    if flatMv.Magnitude > 0.001 then target.CFrame = CFrame.lookAt(target.Position, target.Position + flatMv) end
-                end
-            else
-                bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-                local flatMv = Vector3.new(mv.X, 0, mv.Z)
-                if flatMv.Magnitude > 0.001 then bg.CFrame = CFrame.lookAt(Vector3.zero, flatMv) else bg.CFrame = CFrame.lookAt(Vector3.zero, Vector3.new(0,0,-1)) end
-            end
-            bg.Parent = target
-
+            lastMv = mv; if mv.Magnitude > 0 then bv.Velocity = mv.Unit * (currentSpeed * 50) else bv.Velocity = Vector3.zero end; bv.Parent = target
             if currentHum then currentHum:ChangeState(Enum.HumanoidStateType.Freefall) end
         else
             local bv = target:FindFirstChild("VuKhoa_Fly"); if bv then bv:Destroy() end
-            local bg = target:FindFirstChild("VuKhoa_Gyro"); if bg then bg:Destroy() end
-            
-            if wasMoving then
+            if wasMoving then 
                 wasMoving = false
-                if lastMv.X ~= 0 or lastMv.Z ~= 0 then
+                if lastMv.X ~= 0 or lastMv.Z ~= 0 then 
                     local flatMv = Vector3.new(lastMv.X, 0, lastMv.Z)
-                    if flatMv.Magnitude > 0.001 then target.CFrame = CFrame.lookAt(target.Position, target.Position + flatMv.Unit) end
-                end
+                    if flatMv.Magnitude > 0.001 then target.CFrame = CFrame.lookAt(target.Position, target.Position + flatMv.Unit) end 
+                end 
             end
+            if not noclipActive then for i = 1, #charPartsCache do if charPartsCache[i] and charPartsCache[i].Parent then charPartsCache[i].CanCollide = true end end end
+        end
 
-            if not noclipActive then 
-                for _, v in pairs(target.Parent:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = true end end 
+        local bg = target:FindFirstChild("VuKhoa_Gyro")
+        local bav = target:FindFirstChild("VuKhoa_Spin")
+        
+        if spinBotActive then
+            if bg then bg:Destroy() end 
+            bav = bav or Instance.new("BodyAngularVelocity")
+            bav.Name = "VuKhoa_Spin"
+            bav.MaxTorque = Vector3.new(0, math.huge, 0)
+            bav.AngularVelocity = Vector3.new(0, currentSpinSpeed * 1.25, 0) 
+            bav.Parent = target
+        else
+            if bav then bav:Destroy() end 
+            if isControllerMoving or moonwalkActive then
+                bg = bg or Instance.new("BodyGyro")
+                bg.Name = "VuKhoa_Gyro"; bg.P = 100000; bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge); bg.Parent = target
+                
+                if moonwalkActive then
+                    local activeDir = isControllerMoving and mv or joystickDir
+                    local flatMv = Vector3.new(activeDir.X, 0, activeDir.Z)
+                    if flatMv.Magnitude > 0.001 then bg.CFrame = CFrame.lookAt(target.Position, target.Position - flatMv) end
+                else
+                    if moveModeFace then
+                        if lastMv.X ~= 0 or lastMv.Z ~= 0 then 
+                            local flatMv = Vector3.new(lastMv.X, 0, lastMv.Z)
+                            if flatMv.Magnitude > 0.001 then bg.CFrame = CFrame.lookAt(target.Position, target.Position + flatMv) end
+                        end
+                    else
+                        local flatMv = Vector3.new(lastMv.X, 0, lastMv.Z)
+                        if flatMv.Magnitude > 0.001 then bg.CFrame = CFrame.lookAt(Vector3.zero, flatMv) else bg.CFrame = CFrame.lookAt(Vector3.zero, Vector3.new(0,0,-1)) end
+                    end
+                end
+            else
+                if bg then bg:Destroy() end
             end
         end
     end
     
     if ghimActive and lockedPos and not ghostActive then char.HumanoidRootPart.CFrame = lockedPos; char.HumanoidRootPart.Velocity = Vector3.zero end
-    if spinBotActive and not ghostActive then target.CFrame = target.CFrame * CFrame.Angles(0, math.rad(50), 0) end
 
+    local anyEsp = espLineActive or espBoxActive or espCountActive or xrayActive
     local pCount = 0; local bC = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y)
     
-    for p, data in pairs(espCache) do
-        if not p or not p.Parent then
-            data.Box:Destroy()
-            data.Line:Destroy()
-            espCache[p] = nil
+    if anyEsp then
+        for p, data in pairs(espCache) do if not p or not p.Parent then data.Box:Destroy(); data.Line:Destroy(); espCache[p] = nil end end
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                pCount = pCount + 1; local eChar = p.Character; local eRoot = eChar.HumanoidRootPart
+                if xrayActive then local h = eChar:FindFirstChild("TrVuKhoaa_ESP") or Instance.new("Highlight", eChar); h.FillColor = IOS_BLUE; h.Name = "TrVuKhoaa_ESP" else local h = eChar:FindFirstChild("TrVuKhoaa_ESP"); if h then h:Destroy() end end
+                local espData = getESP(p); local hP, hV = cam:WorldToViewportPoint(eRoot.Position + Vector3.new(0, 3.5, 0)); local fP, fV = cam:WorldToViewportPoint(eRoot.Position - Vector3.new(0, 3.5, 0))
+                if hV or fV then
+                    if espBoxActive then local h = math.abs(hP.Y - fP.Y); local w = h * 0.6; espData.Box.Size = UDim2.new(0, w, 0, h); espData.Box.Position = UDim2.new(0, hP.X - w/2, 0, hP.Y); espData.Box.Visible = true else espData.Box.Visible = false end
+                    if espLineActive then local pP = Vector2.new(fP.X, fP.Y); local d = (bC - pP).Magnitude; espData.Line.Size = UDim2.new(0, d, 0, 1.5); espData.Line.Position = UDim2.new(0, (bC.X + pP.X)/2, 0, (bC.Y + pP.Y)/2); espData.Line.Rotation = math.deg(math.atan2(pP.Y - bC.Y, pP.X - bC.X)); espData.Line.Visible = true else espData.Line.Visible = false end
+                else espData.Box.Visible = false; espData.Line.Visible = false end
+            else if espCache[p] then espCache[p].Box.Visible = false; espCache[p].Line.Visible = false end end
         end
-    end
-
-    for _, p in pairs(game.Players:GetPlayers()) do
-        if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            pCount = pCount + 1; local eChar = p.Character; local eRoot = eChar.HumanoidRootPart
-            if xrayActive then local h = eChar:FindFirstChild("TrVuKhoaa_ESP") or Instance.new("Highlight", eChar); h.FillColor = IOS_BLUE; h.Name = "TrVuKhoaa_ESP" else local h = eChar:FindFirstChild("TrVuKhoaa_ESP"); if h then h:Destroy() end end
-            local espData = getESP(p); local hP, hV = cam:WorldToViewportPoint(eRoot.Position + Vector3.new(0, 3.5, 0)); local fP, fV = cam:WorldToViewportPoint(eRoot.Position - Vector3.new(0, 3.5, 0))
-            if hV or fV then
-                if espBoxActive then local h = math.abs(hP.Y - fP.Y); local w = h * 0.6; espData.Box.Size = UDim2.new(0, w, 0, h); espData.Box.Position = UDim2.new(0, hP.X - w/2, 0, hP.Y); espData.Box.Visible = true else espData.Box.Visible = false end
-                if espLineActive then local pP = Vector2.new(fP.X, fP.Y); local d = (bC - pP).Magnitude; espData.Line.Size = UDim2.new(0, d, 0, 1.5); espData.Line.Position = UDim2.new(0, (bC.X + pP.X)/2, 0, (bC.Y + pP.Y)/2); espData.Line.Rotation = math.deg(math.atan2(pP.Y - bC.Y, pP.X - bC.X)); espData.Line.Visible = true else espData.Line.Visible = false end
-            else espData.Box.Visible = false; espData.Line.Visible = false end
-        else if espCache[p] then espCache[p].Box.Visible = false; espCache[p].Line.Visible = false end end
+    else
+        for p, data in pairs(espCache) do data.Box.Visible = false; data.Line.Visible = false; if p and p.Character then local h = p.Character:FindFirstChild("TrVuKhoaa_ESP"); if h then h:Destroy() end end end
     end
     if espCountActive then CountLabel.Text = "Địch: " .. pCount end
 end)
 
 lp.CharacterAdded:Connect(function(newChar)
-    if ghostActive then
-        ghostActive = false
-        if ghostModel then ghostModel:Destroy(); ghostModel = nil end
-    end
-    
-    if setSpawnActive and savedSpawnCFrame then
-        newChar:WaitForChild("HumanoidRootPart", 5)
-        task.wait(0.3) 
-        if newChar:FindFirstChild("HumanoidRootPart") then
-            newChar.HumanoidRootPart.CFrame = savedSpawnCFrame
-            SendNotify("Hệ Thống", "Đã tự động dịch chuyển về điểm Set Spawn!", 2.5)
-        end
-    end
-    
-    if godMode2Active then
-        task.wait(1)
-        if newChar and newChar:FindFirstChild("Humanoid") then
-            local hum = newChar.Humanoid
-            local clone = hum:Clone()
-            clone.Parent = newChar
-            hum:Destroy()
-            workspace.CurrentCamera.CameraSubject = clone
-            if newChar:FindFirstChild("Animate") then
-                newChar.Animate.Disabled = true; task.wait(); newChar.Animate.Disabled = false
-            end
-        end
-    end
-    
-    if spinBotActive then
-        task.wait(0.5)
-        if newChar:FindFirstChild("Humanoid") then newChar.Humanoid.AutoRotate = false end
-    end
+    cacheCharParts(newChar)
+    if ghostActive then ghostActive = false; if ghostModel then ghostModel:Destroy(); ghostModel = nil end end
+    if setSpawnActive and savedSpawnCFrame then newChar:WaitForChild("HumanoidRootPart", 5); task.wait(0.3); if newChar:FindFirstChild("HumanoidRootPart") then newChar.HumanoidRootPart.CFrame = savedSpawnCFrame end end
+    if godMode2Active then task.wait(1); if newChar and newChar:FindFirstChild("Humanoid") then local oldHum = newChar:FindFirstChild("Humanoid"); local clone = oldHum:Clone(); clone.Name = "Humanoid"; clone.Parent = newChar; workspace.CurrentCamera.CameraSubject = clone; oldHum:Destroy(); local oldAnim = newChar:FindFirstChild("Animate"); if oldAnim then local newAnim = oldAnim:Clone(); oldAnim:Destroy(); newAnim.Parent = newChar end end end
 end)

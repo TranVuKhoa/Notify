@@ -1,4 +1,4 @@
--- [[ VŨ KHOA V50 PRO - ULTIMATE WALL BYPASS & ADVANCED FAKE LAG DESYNC ]]
+-- [[ VŨ KHOA V50 PRO - ULTIMATE WALL BYPASS & ADVANCED MULTIPLIER / FAKE LAG ]]
 local lp = game:GetService("Players").LocalPlayer
 local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
@@ -34,6 +34,14 @@ local godMode3Conn = nil
 local ghostModel = nil
 local noRecoilActive = false
 
+-- [[ BIẾN LOGIC MULTIPLIER (STAT BOOSTER) ]]
+local multiSpeedActive = false
+local multiJumpActive = false
+local multiVal = 1
+local baseWalkSpeed = 16
+local baseJumpPower = 50
+local baseJumpHeight = 7.2
+
 -- [[ BIẾN LOGIC FAKE LAG (PACKET CHOKER & FREEZE) ]]
 local fakeLagEnabled = false
 local fakeLagActive = false
@@ -48,21 +56,16 @@ local function FreezeModel(v)
     if v:IsA("Model") and v ~= lp.Character and v.Name ~= "VuKhoa_Ghost_FL" and v.Name ~= "VuKhoa_Ghost" then
         local hrp = v:FindFirstChild("HumanoidRootPart")
         local hum = v:FindFirstChild("Humanoid")
-        if hrp and hum and hum.Health > 0 then
-            hrp.Anchored = true
-            frozenEntities[hrp] = true
-        end
+        if hrp and hum and hum.Health > 0 then hrp.Anchored = true; frozenEntities[hrp] = true end
     end
 end
 
 local function UnfreezeAll()
-    for hrp, _ in pairs(frozenEntities) do
-        if hrp and hrp.Parent then hrp.Anchored = false end
-    end
+    for hrp, _ in pairs(frozenEntities) do if hrp and hrp.Parent then hrp.Anchored = false end end
     frozenEntities = {}
 end
 
--- [[ BIẾN LOGIC AUTO FLEE (MÁU AN TOÀN) ]]
+-- [[ BIẾN LOGIC AUTO FLEE ]]
 local safeHealthActive = false
 local safeHealthPercent = 30
 local safeHealthReturnPercent = 95
@@ -75,34 +78,21 @@ local charPartsCache = {}
 local function cacheCharParts(character)
     charPartsCache = {}
     if character then
-        for _, v in pairs(character:GetDescendants()) do
-            if v:IsA("BasePart") then table.insert(charPartsCache, v) end
-        end
-        character.DescendantAdded:Connect(function(v)
-            if v:IsA("BasePart") then table.insert(charPartsCache, v) end
-        end)
+        for _, v in pairs(character:GetDescendants()) do if v:IsA("BasePart") then table.insert(charPartsCache, v) end end
+        character.DescendantAdded:Connect(function(v) if v:IsA("BasePart") then table.insert(charPartsCache, v) end end)
     end
 end
 if lp.Character then cacheCharParts(lp.Character) end
 
--- Anti AFK
 if setfpscap then pcall(function() setfpscap(999) end) end
 pcall(function()
     local VirtualUser = game:GetService("VirtualUser")
-    lp.Idled:Connect(function()
-        pcall(function()
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new())
-        end)
-    end)
+    lp.Idled:Connect(function() pcall(function() VirtualUser:CaptureController(); VirtualUser:ClickButton2(Vector2.new()) end) end)
 end)
 
 local function ApplyIOSGlassEdge(parent)
-    local stroke = Instance.new("UIStroke", parent)
-    stroke.Thickness = 1.2
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    local gradient = Instance.new("UIGradient", stroke)
-    gradient.Rotation = 45
+    local stroke = Instance.new("UIStroke", parent); stroke.Thickness = 1.2; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    local gradient = Instance.new("UIGradient", stroke); gradient.Rotation = 45
     gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 120, 130)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))})
     gradient.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.5, 0.8), NumberSequenceKeypoint.new(1, 0.2)})
     return stroke
@@ -111,79 +101,48 @@ end
 local notifyEnabled = true
 local IOS_BLUE = Color3.fromRGB(10, 132, 255)
 
--- [[ NOTIFY SYSTEM ]]
 local function SendNotify(title, text, duration)
     if not notifyEnabled then return end
-    local NotifyGui = UI_PARENT:FindFirstChild("VuKhoa_Notify_System") or Instance.new("ScreenGui", UI_PARENT)
-    NotifyGui.Name = "VuKhoa_Notify_System"
-    local Frame = Instance.new("Frame", NotifyGui)
-    Frame.Size = UDim2.new(0, 240, 0, 70); Frame.Position = UDim2.new(1, 10, 1, -85); Frame.BorderSizePixel = 0
-    Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30); Frame.BackgroundTransparency = 0.35
-    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 16)
-    ApplyIOSGlassEdge(Frame)
+    local NotifyGui = UI_PARENT:FindFirstChild("VuKhoa_Notify_System") or Instance.new("ScreenGui", UI_PARENT); NotifyGui.Name = "VuKhoa_Notify_System"
+    local Frame = Instance.new("Frame", NotifyGui); Frame.Size = UDim2.new(0, 240, 0, 70); Frame.Position = UDim2.new(1, 10, 1, -85); Frame.BorderSizePixel = 0; Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30); Frame.BackgroundTransparency = 0.35
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(Frame)
     local Tl = Instance.new("TextLabel", Frame); Tl.Text = "  "..title; Tl.Size = UDim2.new(1,0,0,28); Tl.BackgroundTransparency = 1; Tl.TextColor3 = IOS_BLUE; Tl.Font = Enum.Font.GothamMedium; Tl.TextSize = 14; Tl.TextXAlignment = "Left"
     local Tx = Instance.new("TextLabel", Frame); Tx.Text = "  "..text; Tx.Size = UDim2.new(1,0,1,-28); Tx.Position = UDim2.new(0,0,0,28); Tx.BackgroundTransparency = 1; Tx.TextColor3 = Color3.fromRGB(240, 240, 245); Tx.Font = Enum.Font.Gotham; Tx.TextSize = 13; Tx.TextXAlignment = "Left"; Tx.TextWrapped = true
     Frame:TweenPosition(UDim2.new(1, -250, 1, -85), "Out", "Quart", 0.6, true)
     task.delay(duration or 3.5, function() if Frame then Frame:Destroy() end end)
 end
 
--- [[ LÒNG MÁU AN TOÀN (AUTO FLEE) ]]
 task.spawn(function()
     while task.wait(0.2) do
         if safeHealthActive and lp.Character then
-            local hum = lp.Character:FindFirstChild("Humanoid")
-            local hrp = lp.Character:FindFirstChild("HumanoidRootPart")
+            local hum = lp.Character:FindFirstChild("Humanoid"); local hrp = lp.Character:FindFirstChild("HumanoidRootPart")
             if hum and hrp and hum.Health > 0 then
                 local currentPct = (hum.Health / hum.MaxHealth) * 100
                 if currentPct <= safeHealthPercent and not isFleeing then
-                    isFleeing = true
-                    preFleeCFrame = hrp.CFrame
-                    if not fleePlatform then
-                        fleePlatform = Instance.new("Part")
-                        fleePlatform.Name = "VuKhoa_FleePlatform"
-                        fleePlatform.Size = Vector3.new(50, 2, 50)
-                        fleePlatform.Anchored = true
-                        fleePlatform.Transparency = 1
-                        fleePlatform.Position = Vector3.new(hrp.Position.X, 60000, hrp.Position.Z)
-                        fleePlatform.Parent = workspace
-                    end
-                    hrp.Velocity = Vector3.zero
-                    hrp.CFrame = fleePlatform.CFrame + Vector3.new(0, 5, 0)
-                    SendNotify("Máu An Toàn", "Nguy Hiểm! Đã sơ tán.", 2.5)
+                    isFleeing = true; preFleeCFrame = hrp.CFrame
+                    if not fleePlatform then fleePlatform = Instance.new("Part"); fleePlatform.Name = "VuKhoa_FleePlatform"; fleePlatform.Size = Vector3.new(50, 2, 50); fleePlatform.Anchored = true; fleePlatform.Transparency = 1; fleePlatform.Position = Vector3.new(hrp.Position.X, 60000, hrp.Position.Z); fleePlatform.Parent = workspace end
+                    hrp.Velocity = Vector3.zero; hrp.CFrame = fleePlatform.CFrame + Vector3.new(0, 5, 0); SendNotify("Máu An Toàn", "Nguy Hiểm! Đã sơ tán.", 2.5)
                 elseif currentPct >= safeHealthReturnPercent and isFleeing then
-                    isFleeing = false
-                    hrp.Velocity = Vector3.zero
-                    if preFleeCFrame then hrp.CFrame = preFleeCFrame end
-                    if fleePlatform then fleePlatform:Destroy(); fleePlatform = nil end
-                    SendNotify("Máu An Toàn", "Máu đã đạt mức an toàn, quay lại!", 2.5)
+                    isFleeing = false; hrp.Velocity = Vector3.zero; if preFleeCFrame then hrp.CFrame = preFleeCFrame end
+                    if fleePlatform then fleePlatform:Destroy(); fleePlatform = nil end; SendNotify("Máu An Toàn", "Máu đã đạt mức an toàn, quay lại!", 2.5)
                 end
             end
         elseif not safeHealthActive and isFleeing then
-            isFleeing = false
-            if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-                lp.Character.HumanoidRootPart.Velocity = Vector3.zero
-                if preFleeCFrame then lp.Character.HumanoidRootPart.CFrame = preFleeCFrame end
-            end
+            isFleeing = false; if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then lp.Character.HumanoidRootPart.Velocity = Vector3.zero; if preFleeCFrame then lp.Character.HumanoidRootPart.CFrame = preFleeCFrame end end
             if fleePlatform then fleePlatform:Destroy(); fleePlatform = nil end
         end
     end
 end)
 
 local function getNearestTarget()
-    local nearestDist = math.huge
-    local bestTarget = nil
-    local mPos = uis:GetMouseLocation()
+    local nearestDist = math.huge; local bestTarget = nil; local mPos = uis:GetMouseLocation()
     for _, p in pairs(game.Players:GetPlayers()) do
         if p ~= lp and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            local head = p.Character:FindFirstChild("Head")
-            local body = p.Character:FindFirstChild("HumanoidRootPart") or p.Character:FindFirstChild("UpperTorso")
+            local head = p.Character:FindFirstChild("Head"); local body = p.Character:FindFirstChild("HumanoidRootPart") or p.Character:FindFirstChild("UpperTorso")
             local targetPart = (math.random(1, 100) <= silentAimHeadshotRate) and head or body
             if targetPart then
                 local screenPos, onScreen = cam:WorldToViewportPoint(targetPart.Position)
-                if onScreen then
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mPos).Magnitude
-                    if dist < nearestDist then nearestDist = dist; bestTarget = targetPart end
-                end
+                if onScreen then local dist = (Vector2.new(screenPos.X, screenPos.Y) - mPos).Magnitude; if dist < nearestDist then nearestDist = dist; bestTarget = targetPart end end
             end
         end
     end
@@ -208,8 +167,22 @@ pcall(function()
     end)
 
     mt.__newindex = newcclosure(function(self, key, value)
-        if not checkcaller() and (godMode1Active or godMode2Active or godMode3Active) and self:IsA("Humanoid") then
-            if key == "Health" or key == "MaxHealth" then return end
+        if not checkcaller() and self:IsA("Humanoid") then
+            if (godMode1Active or godMode2Active or godMode3Active) and (key == "Health" or key == "MaxHealth") then return end
+            
+            -- [[ LOGIC MULTIPLIER CAN THIỆP SÂU ]]
+            if key == "WalkSpeed" and multiSpeedActive then
+                baseWalkSpeed = value 
+                return oldNewindex(self, key, value * multiVal) 
+            end
+            if key == "JumpPower" and multiJumpActive then
+                baseJumpPower = value
+                return oldNewindex(self, key, value * multiVal)
+            end
+            if key == "JumpHeight" and multiJumpActive then
+                baseJumpHeight = value
+                return oldNewindex(self, key, value * multiVal)
+            end
         end
         return oldNewindex(self, key, value)
     end)
@@ -224,11 +197,9 @@ pcall(function()
                 if method == "BreakJoints" and self == lp.Character then return nil end
             end
             
-            -- [[ LOGIC CHẶN PACKET CỦA FAKE LAG ]]
             if fakeLagActive then
                 if method == "FireServer" or method == "InvokeServer" then
-                    table.insert(fakeLagQueue, { Remote = self, Args = args, Method = method })
-                    return nil
+                    table.insert(fakeLagQueue, { Remote = self, Args = args, Method = method }); return nil
                 end
             end
 
@@ -236,19 +207,13 @@ pcall(function()
                 if method == "Raycast" then
                     local origin = args[1]; local dir = args[2]
                     if typeof(origin) == "Vector3" and typeof(dir) == "Vector3" then
-                        if dir.Magnitude > 10 and dir.Unit.Y > -0.85 then 
-                            args[2] = (currentSilentAimTarget.Position - origin).Unit * dir.Magnitude
-                            return oldNamecall(self, unpack(args))
-                        end
+                        if dir.Magnitude > 10 and dir.Unit.Y > -0.85 then args[2] = (currentSilentAimTarget.Position - origin).Unit * dir.Magnitude; return oldNamecall(self, unpack(args)) end
                     end
                 elseif method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRayWithWhitelist" or method == "FindPartOnRay" then
                     local ray = args[1]
                     if typeof(ray) == "Ray" then
                         local origin = ray.Origin; local dir = ray.Direction
-                        if dir.Magnitude > 10 and dir.Unit.Y > -0.85 then
-                            args[1] = Ray.new(origin, (currentSilentAimTarget.Position - origin).Unit * dir.Magnitude)
-                            return oldNamecall(self, unpack(args))
-                        end
+                        if dir.Magnitude > 10 and dir.Unit.Y > -0.85 then args[1] = Ray.new(origin, (currentSilentAimTarget.Position - origin).Unit * dir.Magnitude); return oldNamecall(self, unpack(args)) end
                     end
                 end
             end
@@ -258,9 +223,7 @@ pcall(function()
     setreadonly(mt, true)
 end)
 
-for _, old in pairs(UI_PARENT:GetChildren()) do
-    if old.Name == "TrVuKhoaa_Sync_UI" or old.Name == "VuKhoa_Notify_System" or old.Name == "VuKhoa_ESP_Layer" then old:Destroy() end
-end
+for _, old in pairs(UI_PARENT:GetChildren()) do if old.Name == "TrVuKhoaa_Sync_UI" or old.Name == "VuKhoa_Notify_System" or old.Name == "VuKhoa_ESP_Layer" then old:Destroy() end end
 
 local localMoveDir = Vector3.new(0,0,0)
 local currentSpeed = 2 
@@ -274,17 +237,11 @@ local espLineActive, espBoxActive, espCountActive, espNameActive, espLongArmsAct
 local upDownActive = false
 local setSpawnActive, thirdPersonActive = false, false
 local savedSpawnCFrame, lockedPos, backPosCoord = nil, nil, nil
-local wasMoving = false
-local lastMv = Vector3.zero
-local espNameMode = "Name"
-local upDownMode = "Up"
-local longArmsCache = {}
+local wasMoving = false; local lastMv = Vector3.zero
+local espNameMode = "Name"; local upDownMode = "Up"; local longArmsCache = {}
 
 local ASSET_ID = "rbxthumb://type=Asset&id=82965671854344&w=150&h=150" 
-local GRADIENT_PURPLE = Color3.fromRGB(138, 43, 226)
-local COLOR_RED = Color3.fromRGB(255, 59, 48)
-local COLOR_PINK = Color3.fromRGB(255, 105, 180)
-local COLOR_BLUE = Color3.fromRGB(0, 122, 255)
+local GRADIENT_PURPLE = Color3.fromRGB(138, 43, 226); local COLOR_RED = Color3.fromRGB(255, 59, 48); local COLOR_PINK = Color3.fromRGB(255, 105, 180); local COLOR_BLUE = Color3.fromRGB(0, 122, 255)
 
 local ESPLayer = Instance.new("ScreenGui", UI_PARENT); ESPLayer.Name = "VuKhoa_ESP_Layer"; ESPLayer.IgnoreGuiInset = true; local espCache = {}
 
@@ -299,8 +256,7 @@ local function MakeDraggable(gui, dragHandle)
     end)
     uis.InputChanged:Connect(function(input) 
         if input == dragInput and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then 
-            local delta = input.Position - dragStart
-            if delta.Magnitude > 5 then dragging = true end
+            local delta = input.Position - dragStart; if delta.Magnitude > 5 then dragging = true end
             if dragging then gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end
         end 
     end)
@@ -316,28 +272,144 @@ local function MakeResizable(frame, minSize, maxSize, onResize)
     return grip
 end
 
-local ScreenGui = Instance.new("ScreenGui", UI_PARENT); ScreenGui.Name = "TrVuKhoaa_Sync_UI"
+-- Tối ưu hóa ZIndex Behavior để triệt tiêu hoàn toàn lỗi chồng lấp (Layering Bugs)
+local ScreenGui = Instance.new("ScreenGui", UI_PARENT); ScreenGui.Name = "TrVuKhoaa_Sync_UI"; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- [[ PROMPT ESP TÊN ]]
 local PromptUI = Instance.new("Frame", ScreenGui)
 PromptUI.Size = UDim2.new(0, 200, 0, 130); PromptUI.Position = UDim2.new(0.5, -100, 0.5, -65); PromptUI.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PromptUI.BackgroundTransparency = 0.2; Instance.new("UICorner", PromptUI).CornerRadius = UDim.new(0, 12); ApplyIOSGlassEdge(PromptUI); PromptUI.Visible = false; PromptUI.ZIndex = 100
 local PTitle = Instance.new("TextLabel", PromptUI); PTitle.Text = "CHỌN LOẠI TÊN ESP"; PTitle.Size = UDim2.new(1, 0, 0, 35); PTitle.BackgroundTransparency = 1; PTitle.TextColor3 = IOS_BLUE; PTitle.Font = Enum.Font.GothamBold; PTitle.TextSize = 13; PTitle.ZIndex = 101
 local BtnUser = Instance.new("TextButton", PromptUI); BtnUser.Size = UDim2.new(0.8, 0, 0, 32); BtnUser.Position = UDim2.new(0.1, 0, 0, 42); BtnUser.Text = "Username (Tên Gốc)"; BtnUser.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnUser.TextColor3 = Color3.new(1,1,1); BtnUser.Font = Enum.Font.GothamMedium; BtnUser.TextSize = 12; Instance.new("UICorner", BtnUser).CornerRadius = UDim.new(0, 8); BtnUser.ZIndex = 101
 local BtnDisp = Instance.new("TextButton", PromptUI); BtnDisp.Size = UDim2.new(0.8, 0, 0, 32); BtnDisp.Position = UDim2.new(0.1, 0, 0, 82); BtnDisp.Text = "Tên Hiển Thị (Display)"; BtnDisp.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnDisp.TextColor3 = Color3.new(1,1,1); BtnDisp.Font = Enum.Font.GothamMedium; BtnDisp.TextSize = 12; Instance.new("UICorner", BtnDisp).CornerRadius = UDim.new(0, 8); BtnDisp.ZIndex = 101
 
--- [[ PROMPT UP/DOWN ]]
 local PromptUpDown = Instance.new("Frame", ScreenGui)
 PromptUpDown.Size = UDim2.new(0, 200, 0, 130); PromptUpDown.Position = UDim2.new(0.5, -100, 0.5, -65); PromptUpDown.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PromptUpDown.BackgroundTransparency = 0.2; Instance.new("UICorner", PromptUpDown).CornerRadius = UDim.new(0, 12); ApplyIOSGlassEdge(PromptUpDown); PromptUpDown.Visible = false; PromptUpDown.ZIndex = 100
 local PUDTitle = Instance.new("TextLabel", PromptUpDown); PUDTitle.Text = "CHẾ ĐỘ UP / DOWN"; PUDTitle.Size = UDim2.new(1, 0, 0, 35); PUDTitle.BackgroundTransparency = 1; PUDTitle.TextColor3 = IOS_BLUE; PUDTitle.Font = Enum.Font.GothamBold; PUDTitle.TextSize = 13; PUDTitle.ZIndex = 101
 local BtnUp = Instance.new("TextButton", PromptUpDown); BtnUp.Size = UDim2.new(0.8, 0, 0, 32); BtnUp.Position = UDim2.new(0.1, 0, 0, 42); BtnUp.Text = "Nâng Lên 10m (UP)"; BtnUp.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnUp.TextColor3 = Color3.new(1,1,1); BtnUp.Font = Enum.Font.GothamMedium; BtnUp.TextSize = 12; Instance.new("UICorner", BtnUp).CornerRadius = UDim.new(0, 8); BtnUp.ZIndex = 101
 local BtnDown = Instance.new("TextButton", PromptUpDown); BtnDown.Size = UDim2.new(0.8, 0, 0, 32); BtnDown.Position = UDim2.new(0.1, 0, 0, 82); BtnDown.Text = "Độn Thổ (DOWN)"; BtnDown.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnDown.TextColor3 = Color3.new(1,1,1); BtnDown.Font = Enum.Font.GothamMedium; BtnDown.TextSize = 12; Instance.new("UICorner", BtnDown).CornerRadius = UDim.new(0, 8); BtnDown.ZIndex = 101
 
--- [[ PROMPT CHỌN CHẾ ĐỘ FAKE LAG ]]
 local PromptFakeLag = Instance.new("Frame", ScreenGui)
 PromptFakeLag.Size = UDim2.new(0, 220, 0, 130); PromptFakeLag.Position = UDim2.new(0.5, -110, 0.5, -65); PromptFakeLag.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PromptFakeLag.BackgroundTransparency = 0.2; Instance.new("UICorner", PromptFakeLag).CornerRadius = UDim.new(0, 12); ApplyIOSGlassEdge(PromptFakeLag); PromptFakeLag.Visible = false; PromptFakeLag.ZIndex = 100
 local PFLTitle = Instance.new("TextLabel", PromptFakeLag); PFLTitle.Text = "CHỌN CHẾ ĐỘ FAKE LAG"; PFLTitle.Size = UDim2.new(1, 0, 0, 35); PFLTitle.BackgroundTransparency = 1; PFLTitle.TextColor3 = IOS_BLUE; PFLTitle.Font = Enum.Font.GothamBold; PFLTitle.TextSize = 13; PFLTitle.ZIndex = 101
 local BtnFLStand = Instance.new("TextButton", PromptFakeLag); BtnFLStand.Size = UDim2.new(0.8, 0, 0, 32); BtnFLStand.Position = UDim2.new(0.1, 0, 0, 42); BtnFLStand.Text = "Đứng Yên (Quay về chỗ cũ)"; BtnFLStand.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnFLStand.TextColor3 = Color3.new(1,1,1); BtnFLStand.Font = Enum.Font.GothamMedium; BtnFLStand.TextSize = 12; Instance.new("UICorner", BtnFLStand).CornerRadius = UDim.new(0, 8); BtnFLStand.ZIndex = 101
 local BtnFLMove = Instance.new("TextButton", PromptFakeLag); BtnFLMove.Size = UDim2.new(0.8, 0, 0, 32); BtnFLMove.Position = UDim2.new(0.1, 0, 0, 82); BtnFLMove.Text = "Di Chuyển (Lướt đến mục tiêu)"; BtnFLMove.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnFLMove.TextColor3 = Color3.new(1,1,1); BtnFLMove.Font = Enum.Font.GothamMedium; BtnFLMove.TextSize = 12; Instance.new("UICorner", BtnFLMove).CornerRadius = UDim.new(0, 8); BtnFLMove.ZIndex = 101
+
+-- [[ BẢNG NỔI MULTIPLIER ĐƯỢC THIẾT KẾ MỚI (TÍCH NÚT & ĐỒNG BỘ MÀU, CĂN CHỈNH ZINDEX) ]]
+local MultiPad = Instance.new("Frame", ScreenGui)
+MultiPad.Size = UDim2.new(0, 190, 0, 230) -- Mở rộng khung để chứa đủ thành phần
+MultiPad.Position = UDim2.new(0.5, -200, 0.4, 0)
+MultiPad.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+MultiPad.BackgroundTransparency = 0.35
+MultiPad.Visible = false
+MultiPad.Active = true
+MultiPad.ClipsDescendants = true 
+MultiPad.ZIndex = 100
+Instance.new("UICorner", MultiPad).CornerRadius = UDim.new(0, 16)
+ApplyIOSGlassEdge(MultiPad)
+
+local multiExpandedSize = UDim2.new(0, 190, 0, 230)
+local MultiGrip = MakeResizable(MultiPad, Vector2.new(150, 150), Vector2.new(400, 400), function(s) multiExpandedSize = s end)
+
+local MMiniBtn = Instance.new("TextButton", MultiPad)
+MMiniBtn.Size = UDim2.new(0, 28, 0, 28)
+MMiniBtn.Position = UDim2.new(0, 5, 0, 0)
+MMiniBtn.BackgroundTransparency = 1
+MMiniBtn.Text = "▼"
+MMiniBtn.TextColor3 = IOS_BLUE
+MMiniBtn.Font = Enum.Font.GothamMedium
+MMiniBtn.TextSize = 13
+MMiniBtn.ZIndex = 101
+
+local MTitle = Instance.new("TextLabel", MultiPad)
+MTitle.Size = UDim2.new(1, -70, 0, 28)
+MTitle.Position = UDim2.new(0, 35, 0, 0)
+MTitle.BackgroundTransparency = 1
+MTitle.Text = "MULTIPLIER"
+MTitle.TextColor3 = Color3.fromRGB(180, 180, 190)
+MTitle.Font = Enum.Font.GothamMedium
+MTitle.TextSize = 10
+MTitle.TextXAlignment = "Left"
+MTitle.Active = true
+MTitle.ZIndex = 101
+MakeDraggable(MultiPad, MTitle)
+
+local MCloseBtn = Instance.new("TextButton", MultiPad)
+MCloseBtn.Size = UDim2.new(0, 28, 0, 28)
+MCloseBtn.Position = UDim2.new(1, -30, 0, 0)
+MCloseBtn.BackgroundTransparency = 1
+MCloseBtn.Text = "X"
+MCloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58)
+MCloseBtn.Font = Enum.Font.GothamBold
+MCloseBtn.TextSize = 13
+MCloseBtn.ZIndex = 101
+
+local MultiContent = Instance.new("Frame", MultiPad)
+MultiContent.Size = UDim2.new(1, -12, 1, -34)
+MultiContent.Position = UDim2.new(0, 6, 0, 28)
+MultiContent.BackgroundTransparency = 1
+MultiContent.ZIndex = 101
+local MCL = Instance.new("UIListLayout", MultiContent)
+MCL.Padding = UDim.new(0, 6)
+MCL.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local isMultiMinimized = false
+local function ToggleMultiMinimize(forceMinimize)
+    if forceMinimize ~= nil then isMultiMinimized = forceMinimize else isMultiMinimized = not isMultiMinimized end
+    if isMultiMinimized then MultiContent.Visible = false; MultiGrip.Visible = false; MultiPad:TweenSize(UDim2.new(0, multiExpandedSize.X.Offset, 0, 28), "Out", "Quart", 0.3, true); MMiniBtn.Text = "▶" 
+    else MultiContent.Visible = true; MultiGrip.Visible = true; MultiPad:TweenSize(multiExpandedSize, "Out", "Quart", 0.3, true); MMiniBtn.Text = "▼" end 
+end
+MMiniBtn.MouseButton1Click:Connect(ToggleMultiMinimize)
+
+local currentMultiMode = "Both"
+local multiRadioBtns = {}
+local function CreateRadioBtn(parent, text, mode)
+    local Btn = Instance.new("TextButton", parent); Btn.Size = UDim2.new(0.92, 0, 0, 32); Btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Btn.BackgroundTransparency = 0.92; Btn.Text = ""; Btn.ZIndex = 101 
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 10)
+    local Square = Instance.new("Frame", Btn); Square.Size = UDim2.new(0, 16, 0, 16); Square.Position = UDim2.new(0, 10, 0.5, -8); Square.BorderSizePixel = 0; Square.ZIndex = 102
+    Instance.new("UICorner", Square).CornerRadius = UDim.new(1, 0)
+    local Label = Instance.new("TextLabel", Btn); Label.Size = UDim2.new(1, -36, 1, 0); Label.Position = UDim2.new(0, 35, 0, 0); Label.BackgroundTransparency = 1; Label.Text = text; Label.Font = Enum.Font.GothamMedium; Label.TextColor3 = Color3.fromRGB(240, 240, 245); Label.TextSize = 11; Label.TextXAlignment = "Left"; Label.ZIndex = 102
+    
+    table.insert(multiRadioBtns, {btn = Btn, sq = Square, mode = mode})
+    local function refresh()
+        for _, v in pairs(multiRadioBtns) do
+            local isActive = (v.mode == currentMultiMode)
+            v.sq.BackgroundColor3 = isActive and IOS_BLUE or Color3.fromRGB(80, 80, 85)
+            v.sq.BackgroundTransparency = isActive and 0.1 or 0.6
+        end
+    end
+    Btn.MouseButton1Click:Connect(function() currentMultiMode = mode; refresh() end)
+    refresh()
+    return Btn
+end
+
+CreateRadioBtn(MultiContent, "Chỉ Tốc Độ", "Speed")
+CreateRadioBtn(MultiContent, "Chỉ Sức Nhảy", "Jump")
+CreateRadioBtn(MultiContent, "Cả Hai (Both)", "Both")
+
+local InputMultiFrame = Instance.new("Frame", MultiContent); InputMultiFrame.Size = UDim2.new(0.92, 0, 0, 32); InputMultiFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255); InputMultiFrame.BackgroundTransparency = 0.92; InputMultiFrame.ZIndex = 101; Instance.new("UICorner", InputMultiFrame).CornerRadius = UDim.new(0, 10)
+local InputMulti = Instance.new("TextBox", InputMultiFrame); InputMulti.Size = UDim2.new(1, -20, 1, 0); InputMulti.Position = UDim2.new(0, 10, 0, 0); InputMulti.BackgroundTransparency = 1; InputMulti.Text = ""; InputMulti.PlaceholderText = "Nhập X lần (VD: 5)..."; InputMulti.TextColor3 = Color3.new(1,1,1); InputMulti.Font = Enum.Font.GothamBold; InputMulti.TextSize = 11; InputMulti.TextXAlignment = "Left"; InputMulti.ZIndex = 102
+
+local BtnMultiOK = Instance.new("TextButton", MultiContent); BtnMultiOK.Size = UDim2.new(0.92, 0, 0, 32); BtnMultiOK.Text = "XÁC NHẬN"; BtnMultiOK.BackgroundColor3 = IOS_BLUE; BtnMultiOK.BackgroundTransparency = 0.2; BtnMultiOK.TextColor3 = Color3.new(1,1,1); BtnMultiOK.Font = Enum.Font.GothamBold; BtnMultiOK.TextSize = 12; BtnMultiOK.ZIndex = 101; Instance.new("UICorner", BtnMultiOK).CornerRadius = UDim.new(0, 10)
+
+local multiMainBtn = nil 
+MCloseBtn.MouseButton1Click:Connect(function() 
+    MultiPad.Visible = false
+    if multiMainBtn and multiMainBtn:GetAttribute("IsActive") == true then multiMainBtn:SetAttribute("IsActive", false) end
+    multiSpeedActive = false; multiJumpActive = false; multiVal = 1
+    local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
+    if hum then hum.WalkSpeed = baseWalkSpeed; hum.JumpPower = baseJumpPower; hum.JumpHeight = baseJumpHeight end
+end)
+
+BtnMultiOK.MouseButton1Click:Connect(function()
+    local val = tonumber(InputMulti.Text)
+    if not val or val <= 0 then SendNotify("Lỗi", "Vui lòng nhập số hợp lệ!", 2); return end
+    multiVal = val; multiSpeedActive = (currentMultiMode == "Speed" or currentMultiMode == "Both"); multiJumpActive = (currentMultiMode == "Jump" or currentMultiMode == "Both")
+    local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
+    if hum then baseWalkSpeed = hum.WalkSpeed; baseJumpPower = hum.JumpPower; baseJumpHeight = hum.JumpHeight end
+    
+    ToggleMultiMinimize(true) 
+    SendNotify("Multiplier", "BẬT thành công: Nhân x" .. val .. " lần!", 2.5)
+end)
+-- [[ HẾT BẢNG NỔI MULTIPLIER ]]
 
 local MainFrame = Instance.new("Frame", ScreenGui); MainFrame.Size = UDim2.new(0, 240, 0, 480); MainFrame.Position = UDim2.new(0.5, -120, 0.4, 0); MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MainFrame.BackgroundTransparency = 0.35; MainFrame.Active = true; MainFrame.ClipsDescendants = true; MainFrame.BorderSizePixel = 0
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 18); ApplyIOSGlassEdge(MainFrame)
@@ -421,7 +493,7 @@ local function CreateActionBtn(xOffset, text, clickFunc)
     Btn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragStart = i.Position; dragInput = i; dragging = false; i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then dragInput = nil end end) end end)
     Btn.InputChanged:Connect(function(i) if dragInput == i and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then if (i.Position - dragStart).Magnitude > 5 then dragging = true end end end)
     Btn.MouseButton1Click:Connect(function() if not dragging then clickFunc(Btn) end end)
-    MakeDraggable(Frm); return Frm
+    MakeDraggable(Frm, Btn); return Frm 
 end
 
 local SpawnBtnFrame = CreateActionBtn(-99, "🚩", function(btn) setSpawnActive = not setSpawnActive; if setSpawnActive and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then savedSpawnCFrame = lp.Character.HumanoidRootPart.CFrame; btn.Text = "✅"; SendNotify("Spawn", "Đã chốt vị trí!", 1.5) else setSpawnActive = false; savedSpawnCFrame = nil; btn.Text = "🚩"; SendNotify("Spawn", "Đã xóa vị trí!", 1.5) end end)
@@ -487,6 +559,10 @@ function TurnOffFakeLag()
     end
 
     FakeLagBtnFrame:FindFirstChildOfClass("TextButton").Text = "🌐"
+    
+    if fakeLagMainBtn and fakeLagMainBtn:GetAttribute("IsActive") == true then
+        fakeLagMainBtn:SetAttribute("IsActive", false)
+    end
 
     task.spawn(function()
         if char and char:FindFirstChild("HumanoidRootPart") and fakeLagStartCFrame then
@@ -529,6 +605,7 @@ BtnFLStand.MouseButton1Click:Connect(function()
     PromptFakeLag.Visible = false
     fakeLagMode = "Stand"
     FakeLagBtnFrame.Visible = true
+    if fakeLagMainBtn then fakeLagMainBtn:SetAttribute("IsActive", true) end
     SendNotify("Fake Lag", "Đã chọn: Đứng Yên", 1.5)
     TurnOnFakeLag()
 end)
@@ -537,6 +614,7 @@ BtnFLMove.MouseButton1Click:Connect(function()
     PromptFakeLag.Visible = false
     fakeLagMode = "Move"
     FakeLagBtnFrame.Visible = true
+    if fakeLagMainBtn then fakeLagMainBtn:SetAttribute("IsActive", true) end
     SendNotify("Fake Lag", "Đã chọn: Di Chuyển", 1.5)
     TurnOnFakeLag()
 end)
@@ -560,7 +638,7 @@ local function CreateBtn(parent, text, callback, defaultActive)
         local newState = not Btn:GetAttribute("IsActive")
         Btn:SetAttribute("IsActive", newState)
         callback(newState)
-        if text ~= "Fake Lag (Dồn Dame)" then SendNotify("Cài Đặt", text .. (newState and " BẬT" or " TẮT"), 1.2) end
+        if text ~= "Fake Lag (Dồn Dame)" and text ~= "Multiplier Speed & Jump" then SendNotify("Cài Đặt", text .. (newState and " BẬT" or " TẮT"), 1.2) end
     end)
     Btn:GetAttributeChangedSignal("IsActive"):Connect(UpdateState)
     return Btn
@@ -709,6 +787,28 @@ CreateBtn(ScrollHidden, "No Recoil", function(s) noRecoilActive = s; if s then t
 CreateBtn(ScrollHidden, "Silent Aim", function(s) silentAimActive = s end)
 CreateSlider(ScrollHidden, "Headshot Rate", 0, 100, 100, IOS_BLUE, GRADIENT_PURPLE, function(val) silentAimHeadshotRate = val end)
 CreateBtn(ScrollHidden, "Third Person Camera", function(s) thirdPersonActive = s; if s then lp.CameraMode = Enum.CameraMode.Classic; lp.CameraMinZoomDistance = 15; lp.CameraMaxZoomDistance = 128 else lp.CameraMinZoomDistance = 0.5 end end)
+
+multiMainBtn = CreateBtn(ScrollHidden, "Multiplier Speed & Jump", function(s)
+    if s then
+        MultiPad.Visible = true
+        ToggleMultiMinimize(false)
+    else
+        MultiPad.Visible = false
+        multiSpeedActive = false
+        multiJumpActive = false
+        multiVal = 1
+        local char = lp.Character
+        if char then
+            local hum = char:FindFirstChild("Humanoid")
+            if hum then
+                hum.WalkSpeed = baseWalkSpeed
+                hum.JumpPower = baseJumpPower
+                hum.JumpHeight = baseJumpHeight
+                SendNotify("Multiplier", "Đã TẮT! Trả về gốc.", 2)
+            end
+        end
+    end
+end)
 
 CreateBtn(ScrollHidden, "Hitbox", function(s)
     hitboxActive = s
@@ -871,6 +971,13 @@ runService.RenderStepped:Connect(function(dt)
             if result then local destY = result.Position.Y + (upDownMode == "Down" and -13 or 15); local rx, ry, rz = target.CFrame:ToOrientation(); target.CFrame = CFrame.new(target.Position.X, destY, target.Position.Z) * CFrame.Angles(rx, ry, rz); target.Velocity = Vector3.new(target.Velocity.X, 0, target.Velocity.Z) end
             if currentHum:GetState() == Enum.HumanoidStateType.Freefall then currentHum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics) end
         else currentHum.CameraOffset = Vector3.zero end
+
+        -- [[ MULTIPLIER FORCE LOOP ]]
+        if multiSpeedActive then currentHum.WalkSpeed = baseWalkSpeed * multiVal end
+        if multiJumpActive then 
+            if currentHum.UseJumpPower then currentHum.JumpPower = baseJumpPower * multiVal
+            else currentHum.JumpHeight = baseJumpHeight * multiVal end
+        end
     end
     
     if (ghostActive or fakeLagActive) and ghostModel and realHum then
@@ -901,9 +1008,9 @@ runService.RenderStepped:Connect(function(dt)
     end
     
     if currentHum and not ghostActive and not fakeLagActive and not isFleeing then
-        if currentHum.WalkSpeed < 16 then currentHum.WalkSpeed = 16 end
+        if not multiSpeedActive and currentHum.WalkSpeed < 16 then currentHum.WalkSpeed = 16 end
         if currentWalkSpeedLevel > 1 and localMoveDir.Magnitude == 0 and currentHum.MoveDirection.Magnitude > 0 then local speedMultiplier = (currentWalkSpeedLevel * 25) * dt; target.CFrame = target.CFrame + (currentHum.MoveDirection * speedMultiplier); for _, track in pairs(currentHum:GetPlayingAnimationTracks()) do track:AdjustSpeed(0.25) end end
-        if currentHum.JumpPower < 50 then currentHum.JumpPower = 50 end; currentHum.Sit = false
+        if not multiJumpActive and currentHum.JumpPower < 50 then currentHum.JumpPower = 50 end; currentHum.Sit = false
     end
     
     for _, v in pairs(target.Parent:GetDescendants()) do if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.Anchored then v.Anchored = false end end

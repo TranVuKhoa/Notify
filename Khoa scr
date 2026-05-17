@@ -1,4 +1,4 @@
--- [[ VŨ KHOA V50 PRO - ULTIMATE WALL BYPASS & ADVANCED MULTIPLIER / FAKE LAG ]]
+-- [[ VŨ KHOA V50 PRO - ULTIMATE WALL BYPASS, MULTIPLIER & REMOTE EXECUTOR ]]
 local lp = game:GetService("Players").LocalPlayer
 local runService = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
@@ -34,7 +34,7 @@ local godMode3Conn = nil
 local ghostModel = nil
 local noRecoilActive = false
 
--- [[ BIẾN LOGIC MULTIPLIER (STAT BOOSTER) ]]
+-- [[ BIẾN LOGIC MULTIPLIER ]]
 local multiSpeedActive = false
 local multiJumpActive = false
 local multiVal = 1
@@ -42,7 +42,7 @@ local baseWalkSpeed = 16
 local baseJumpPower = 50
 local baseJumpHeight = 7.2
 
--- [[ BIẾN LOGIC FAKE LAG (PACKET CHOKER & FREEZE) ]]
+-- [[ BIẾN LOGIC FAKE LAG ]]
 local fakeLagEnabled = false
 local fakeLagActive = false
 local fakeLagMode = "Stand"
@@ -169,20 +169,9 @@ pcall(function()
     mt.__newindex = newcclosure(function(self, key, value)
         if not checkcaller() and self:IsA("Humanoid") then
             if (godMode1Active or godMode2Active or godMode3Active) and (key == "Health" or key == "MaxHealth") then return end
-            
-            -- [[ LOGIC MULTIPLIER CAN THIỆP SÂU ]]
-            if key == "WalkSpeed" and multiSpeedActive then
-                baseWalkSpeed = value 
-                return oldNewindex(self, key, value * multiVal) 
-            end
-            if key == "JumpPower" and multiJumpActive then
-                baseJumpPower = value
-                return oldNewindex(self, key, value * multiVal)
-            end
-            if key == "JumpHeight" and multiJumpActive then
-                baseJumpHeight = value
-                return oldNewindex(self, key, value * multiVal)
-            end
+            if key == "WalkSpeed" and multiSpeedActive then baseWalkSpeed = value; return oldNewindex(self, key, value * multiVal) end
+            if key == "JumpPower" and multiJumpActive then baseJumpPower = value; return oldNewindex(self, key, value * multiVal) end
+            if key == "JumpHeight" and multiJumpActive then baseJumpHeight = value; return oldNewindex(self, key, value * multiVal) end
         end
         return oldNewindex(self, key, value)
     end)
@@ -196,19 +185,13 @@ pcall(function()
                 if method == "TakeDamage" and self:IsA("Humanoid") then return nil end
                 if method == "BreakJoints" and self == lp.Character then return nil end
             end
-            
             if fakeLagActive then
-                if method == "FireServer" or method == "InvokeServer" then
-                    table.insert(fakeLagQueue, { Remote = self, Args = args, Method = method }); return nil
-                end
+                if method == "FireServer" or method == "InvokeServer" then table.insert(fakeLagQueue, { Remote = self, Args = args, Method = method }); return nil end
             end
-
             if silentAimActive and currentSilentAimTarget then
                 if method == "Raycast" then
                     local origin = args[1]; local dir = args[2]
-                    if typeof(origin) == "Vector3" and typeof(dir) == "Vector3" then
-                        if dir.Magnitude > 10 and dir.Unit.Y > -0.85 then args[2] = (currentSilentAimTarget.Position - origin).Unit * dir.Magnitude; return oldNamecall(self, unpack(args)) end
-                    end
+                    if typeof(origin) == "Vector3" and typeof(dir) == "Vector3" then if dir.Magnitude > 10 and dir.Unit.Y > -0.85 then args[2] = (currentSilentAimTarget.Position - origin).Unit * dir.Magnitude; return oldNamecall(self, unpack(args)) end end
                 elseif method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRayWithWhitelist" or method == "FindPartOnRay" then
                     local ray = args[1]
                     if typeof(ray) == "Ray" then
@@ -225,17 +208,11 @@ end)
 
 for _, old in pairs(UI_PARENT:GetChildren()) do if old.Name == "TrVuKhoaa_Sync_UI" or old.Name == "VuKhoa_Notify_System" or old.Name == "VuKhoa_ESP_Layer" then old:Destroy() end end
 
-local localMoveDir = Vector3.new(0,0,0)
-local currentSpeed = 2 
-local currentWalkSpeedLevel = 1 
-local currentHitboxSize = 100
-local currentSpinSpeed = 50 
+local localMoveDir = Vector3.new(0,0,0); local currentSpeed = 2; local currentWalkSpeedLevel = 1; local currentHitboxSize = 100; local currentSpinSpeed = 50 
 local noclipActive, moonwalkActive, ghimActive, xrayActive, ghostActive, backPosActive = false, false, false, false, false, false
 local spinBotActive, fpsActive, tapWallActive, infJumpActive, hitboxActive = false, false, false, false, false
-local moveModeFace = true 
-local espLineActive, espBoxActive, espCountActive, espNameActive, espLongArmsActive = false, false, false, false, false
-local upDownActive = false
-local setSpawnActive, thirdPersonActive = false, false
+local moveModeFace = true; local espLineActive, espBoxActive, espCountActive, espNameActive, espLongArmsActive = false, false, false, false, false
+local upDownActive = false; local setSpawnActive, thirdPersonActive = false, false
 local savedSpawnCFrame, lockedPos, backPosCoord = nil, nil, nil
 local wasMoving = false; local lastMv = Vector3.zero
 local espNameMode = "Name"; local upDownMode = "Up"; local longArmsCache = {}
@@ -246,19 +223,12 @@ local GRADIENT_PURPLE = Color3.fromRGB(138, 43, 226); local COLOR_RED = Color3.f
 local ESPLayer = Instance.new("ScreenGui", UI_PARENT); ESPLayer.Name = "VuKhoa_ESP_Layer"; ESPLayer.IgnoreGuiInset = true; local espCache = {}
 
 local function MakeDraggable(gui, dragHandle)
-    dragHandle = dragHandle or gui
-    local dragging = false; local dragInput, dragStart, startPos
+    dragHandle = dragHandle or gui; local dragging = false; local dragInput, dragStart, startPos
     dragHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-            dragging = false; dragInput = input; dragStart = input.Position; startPos = gui.Position
-            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false; dragInput = nil end end) 
-        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false; dragInput = input; dragStart = input.Position; startPos = gui.Position; input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false; dragInput = nil end end) end
     end)
     uis.InputChanged:Connect(function(input) 
-        if input == dragInput and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then 
-            local delta = input.Position - dragStart; if delta.Magnitude > 5 then dragging = true end
-            if dragging then gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end
-        end 
+        if input == dragInput and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - dragStart; if delta.Magnitude > 5 then dragging = true end; if dragging then gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end 
     end)
 end
 
@@ -272,171 +242,142 @@ local function MakeResizable(frame, minSize, maxSize, onResize)
     return grip
 end
 
--- Tối ưu hóa ZIndex Behavior để triệt tiêu hoàn toàn lỗi chồng lấp (Layering Bugs)
 local ScreenGui = Instance.new("ScreenGui", UI_PARENT); ScreenGui.Name = "TrVuKhoaa_Sync_UI"; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-local PromptUI = Instance.new("Frame", ScreenGui)
-PromptUI.Size = UDim2.new(0, 200, 0, 130); PromptUI.Position = UDim2.new(0.5, -100, 0.5, -65); PromptUI.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PromptUI.BackgroundTransparency = 0.2; Instance.new("UICorner", PromptUI).CornerRadius = UDim.new(0, 12); ApplyIOSGlassEdge(PromptUI); PromptUI.Visible = false; PromptUI.ZIndex = 100
-local PTitle = Instance.new("TextLabel", PromptUI); PTitle.Text = "CHỌN LOẠI TÊN ESP"; PTitle.Size = UDim2.new(1, 0, 0, 35); PTitle.BackgroundTransparency = 1; PTitle.TextColor3 = IOS_BLUE; PTitle.Font = Enum.Font.GothamBold; PTitle.TextSize = 13; PTitle.ZIndex = 101
-local BtnUser = Instance.new("TextButton", PromptUI); BtnUser.Size = UDim2.new(0.8, 0, 0, 32); BtnUser.Position = UDim2.new(0.1, 0, 0, 42); BtnUser.Text = "Username (Tên Gốc)"; BtnUser.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnUser.TextColor3 = Color3.new(1,1,1); BtnUser.Font = Enum.Font.GothamMedium; BtnUser.TextSize = 12; Instance.new("UICorner", BtnUser).CornerRadius = UDim.new(0, 8); BtnUser.ZIndex = 101
-local BtnDisp = Instance.new("TextButton", PromptUI); BtnDisp.Size = UDim2.new(0.8, 0, 0, 32); BtnDisp.Position = UDim2.new(0.1, 0, 0, 82); BtnDisp.Text = "Tên Hiển Thị (Display)"; BtnDisp.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnDisp.TextColor3 = Color3.new(1,1,1); BtnDisp.Font = Enum.Font.GothamMedium; BtnDisp.TextSize = 12; Instance.new("UICorner", BtnDisp).CornerRadius = UDim.new(0, 8); BtnDisp.ZIndex = 101
+-- [[ TẠO GIAO DIỆN KHÔNG DÙNG LOCAL ĐỂ TRÁNH QUÁ GIỚI HẠN REGISTER LUA ]]
+local PromptUI = Instance.new("Frame", ScreenGui); PromptUI.Size = UDim2.new(0, 200, 0, 130); PromptUI.Position = UDim2.new(0.5, -100, 0.5, -65); PromptUI.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PromptUI.BackgroundTransparency = 0.2; Instance.new("UICorner", PromptUI).CornerRadius = UDim.new(0, 12); ApplyIOSGlassEdge(PromptUI); PromptUI.Visible = false; PromptUI.ZIndex = 100
+PTitle = Instance.new("TextLabel", PromptUI); PTitle.Text = "CHỌN LOẠI TÊN ESP"; PTitle.Size = UDim2.new(1, 0, 0, 35); PTitle.BackgroundTransparency = 1; PTitle.TextColor3 = IOS_BLUE; PTitle.Font = Enum.Font.GothamBold; PTitle.TextSize = 13; PTitle.ZIndex = 101
+BtnUser = Instance.new("TextButton", PromptUI); BtnUser.Size = UDim2.new(0.8, 0, 0, 32); BtnUser.Position = UDim2.new(0.1, 0, 0, 42); BtnUser.Text = "Username (Tên Gốc)"; BtnUser.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnUser.TextColor3 = Color3.new(1,1,1); BtnUser.Font = Enum.Font.GothamMedium; BtnUser.TextSize = 12; Instance.new("UICorner", BtnUser).CornerRadius = UDim.new(0, 8); BtnUser.ZIndex = 101
+BtnDisp = Instance.new("TextButton", PromptUI); BtnDisp.Size = UDim2.new(0.8, 0, 0, 32); BtnDisp.Position = UDim2.new(0.1, 0, 0, 82); BtnDisp.Text = "Tên Hiển Thị (Display)"; BtnDisp.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnDisp.TextColor3 = Color3.new(1,1,1); BtnDisp.Font = Enum.Font.GothamMedium; BtnDisp.TextSize = 12; Instance.new("UICorner", BtnDisp).CornerRadius = UDim.new(0, 8); BtnDisp.ZIndex = 101
 
-local PromptUpDown = Instance.new("Frame", ScreenGui)
-PromptUpDown.Size = UDim2.new(0, 200, 0, 130); PromptUpDown.Position = UDim2.new(0.5, -100, 0.5, -65); PromptUpDown.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PromptUpDown.BackgroundTransparency = 0.2; Instance.new("UICorner", PromptUpDown).CornerRadius = UDim.new(0, 12); ApplyIOSGlassEdge(PromptUpDown); PromptUpDown.Visible = false; PromptUpDown.ZIndex = 100
-local PUDTitle = Instance.new("TextLabel", PromptUpDown); PUDTitle.Text = "CHẾ ĐỘ UP / DOWN"; PUDTitle.Size = UDim2.new(1, 0, 0, 35); PUDTitle.BackgroundTransparency = 1; PUDTitle.TextColor3 = IOS_BLUE; PUDTitle.Font = Enum.Font.GothamBold; PUDTitle.TextSize = 13; PUDTitle.ZIndex = 101
-local BtnUp = Instance.new("TextButton", PromptUpDown); BtnUp.Size = UDim2.new(0.8, 0, 0, 32); BtnUp.Position = UDim2.new(0.1, 0, 0, 42); BtnUp.Text = "Nâng Lên 10m (UP)"; BtnUp.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnUp.TextColor3 = Color3.new(1,1,1); BtnUp.Font = Enum.Font.GothamMedium; BtnUp.TextSize = 12; Instance.new("UICorner", BtnUp).CornerRadius = UDim.new(0, 8); BtnUp.ZIndex = 101
-local BtnDown = Instance.new("TextButton", PromptUpDown); BtnDown.Size = UDim2.new(0.8, 0, 0, 32); BtnDown.Position = UDim2.new(0.1, 0, 0, 82); BtnDown.Text = "Độn Thổ (DOWN)"; BtnDown.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnDown.TextColor3 = Color3.new(1,1,1); BtnDown.Font = Enum.Font.GothamMedium; BtnDown.TextSize = 12; Instance.new("UICorner", BtnDown).CornerRadius = UDim.new(0, 8); BtnDown.ZIndex = 101
+local PromptUpDown = Instance.new("Frame", ScreenGui); PromptUpDown.Size = UDim2.new(0, 200, 0, 130); PromptUpDown.Position = UDim2.new(0.5, -100, 0.5, -65); PromptUpDown.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PromptUpDown.BackgroundTransparency = 0.2; Instance.new("UICorner", PromptUpDown).CornerRadius = UDim.new(0, 12); ApplyIOSGlassEdge(PromptUpDown); PromptUpDown.Visible = false; PromptUpDown.ZIndex = 100
+PUDTitle = Instance.new("TextLabel", PromptUpDown); PUDTitle.Text = "CHẾ ĐỘ UP / DOWN"; PUDTitle.Size = UDim2.new(1, 0, 0, 35); PUDTitle.BackgroundTransparency = 1; PUDTitle.TextColor3 = IOS_BLUE; PUDTitle.Font = Enum.Font.GothamBold; PUDTitle.TextSize = 13; PUDTitle.ZIndex = 101
+BtnUp = Instance.new("TextButton", PromptUpDown); BtnUp.Size = UDim2.new(0.8, 0, 0, 32); BtnUp.Position = UDim2.new(0.1, 0, 0, 42); BtnUp.Text = "Nâng Lên 10m (UP)"; BtnUp.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnUp.TextColor3 = Color3.new(1,1,1); BtnUp.Font = Enum.Font.GothamMedium; BtnUp.TextSize = 12; Instance.new("UICorner", BtnUp).CornerRadius = UDim.new(0, 8); BtnUp.ZIndex = 101
+BtnDown = Instance.new("TextButton", PromptUpDown); BtnDown.Size = UDim2.new(0.8, 0, 0, 32); BtnDown.Position = UDim2.new(0.1, 0, 0, 82); BtnDown.Text = "Độn Thổ (DOWN)"; BtnDown.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnDown.TextColor3 = Color3.new(1,1,1); BtnDown.Font = Enum.Font.GothamMedium; BtnDown.TextSize = 12; Instance.new("UICorner", BtnDown).CornerRadius = UDim.new(0, 8); BtnDown.ZIndex = 101
 
-local PromptFakeLag = Instance.new("Frame", ScreenGui)
-PromptFakeLag.Size = UDim2.new(0, 220, 0, 130); PromptFakeLag.Position = UDim2.new(0.5, -110, 0.5, -65); PromptFakeLag.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PromptFakeLag.BackgroundTransparency = 0.2; Instance.new("UICorner", PromptFakeLag).CornerRadius = UDim.new(0, 12); ApplyIOSGlassEdge(PromptFakeLag); PromptFakeLag.Visible = false; PromptFakeLag.ZIndex = 100
-local PFLTitle = Instance.new("TextLabel", PromptFakeLag); PFLTitle.Text = "CHỌN CHẾ ĐỘ FAKE LAG"; PFLTitle.Size = UDim2.new(1, 0, 0, 35); PFLTitle.BackgroundTransparency = 1; PFLTitle.TextColor3 = IOS_BLUE; PFLTitle.Font = Enum.Font.GothamBold; PFLTitle.TextSize = 13; PFLTitle.ZIndex = 101
-local BtnFLStand = Instance.new("TextButton", PromptFakeLag); BtnFLStand.Size = UDim2.new(0.8, 0, 0, 32); BtnFLStand.Position = UDim2.new(0.1, 0, 0, 42); BtnFLStand.Text = "Đứng Yên (Quay về chỗ cũ)"; BtnFLStand.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnFLStand.TextColor3 = Color3.new(1,1,1); BtnFLStand.Font = Enum.Font.GothamMedium; BtnFLStand.TextSize = 12; Instance.new("UICorner", BtnFLStand).CornerRadius = UDim.new(0, 8); BtnFLStand.ZIndex = 101
-local BtnFLMove = Instance.new("TextButton", PromptFakeLag); BtnFLMove.Size = UDim2.new(0.8, 0, 0, 32); BtnFLMove.Position = UDim2.new(0.1, 0, 0, 82); BtnFLMove.Text = "Di Chuyển (Lướt đến mục tiêu)"; BtnFLMove.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnFLMove.TextColor3 = Color3.new(1,1,1); BtnFLMove.Font = Enum.Font.GothamMedium; BtnFLMove.TextSize = 12; Instance.new("UICorner", BtnFLMove).CornerRadius = UDim.new(0, 8); BtnFLMove.ZIndex = 101
+local PromptFakeLag = Instance.new("Frame", ScreenGui); PromptFakeLag.Size = UDim2.new(0, 220, 0, 130); PromptFakeLag.Position = UDim2.new(0.5, -110, 0.5, -65); PromptFakeLag.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PromptFakeLag.BackgroundTransparency = 0.2; Instance.new("UICorner", PromptFakeLag).CornerRadius = UDim.new(0, 12); ApplyIOSGlassEdge(PromptFakeLag); PromptFakeLag.Visible = false; PromptFakeLag.ZIndex = 100
+PFLTitle = Instance.new("TextLabel", PromptFakeLag); PFLTitle.Text = "CHỌN CHẾ ĐỘ FAKE LAG"; PFLTitle.Size = UDim2.new(1, 0, 0, 35); PFLTitle.BackgroundTransparency = 1; PFLTitle.TextColor3 = IOS_BLUE; PFLTitle.Font = Enum.Font.GothamBold; PFLTitle.TextSize = 13; PFLTitle.ZIndex = 101
+BtnFLStand = Instance.new("TextButton", PromptFakeLag); BtnFLStand.Size = UDim2.new(0.8, 0, 0, 32); BtnFLStand.Position = UDim2.new(0.1, 0, 0, 42); BtnFLStand.Text = "Đứng Yên (Quay về chỗ cũ)"; BtnFLStand.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnFLStand.TextColor3 = Color3.new(1,1,1); BtnFLStand.Font = Enum.Font.GothamMedium; BtnFLStand.TextSize = 12; Instance.new("UICorner", BtnFLStand).CornerRadius = UDim.new(0, 8); BtnFLStand.ZIndex = 101
+BtnFLMove = Instance.new("TextButton", PromptFakeLag); BtnFLMove.Size = UDim2.new(0.8, 0, 0, 32); BtnFLMove.Position = UDim2.new(0.1, 0, 0, 82); BtnFLMove.Text = "Di Chuyển (Lướt đến mục tiêu)"; BtnFLMove.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnFLMove.TextColor3 = Color3.new(1,1,1); BtnFLMove.Font = Enum.Font.GothamMedium; BtnFLMove.TextSize = 12; Instance.new("UICorner", BtnFLMove).CornerRadius = UDim.new(0, 8); BtnFLMove.ZIndex = 101
 
--- [[ BẢNG NỔI MULTIPLIER ĐƯỢC THIẾT KẾ MỚI (TÍCH NÚT & ĐỒNG BỘ MÀU, CĂN CHỈNH ZINDEX) ]]
-local MultiPad = Instance.new("Frame", ScreenGui)
-MultiPad.Size = UDim2.new(0, 190, 0, 230) -- Mở rộng khung để chứa đủ thành phần
-MultiPad.Position = UDim2.new(0.5, -200, 0.4, 0)
-MultiPad.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
-MultiPad.BackgroundTransparency = 0.35
-MultiPad.Visible = false
-MultiPad.Active = true
-MultiPad.ClipsDescendants = true 
-MultiPad.ZIndex = 100
-Instance.new("UICorner", MultiPad).CornerRadius = UDim.new(0, 16)
-ApplyIOSGlassEdge(MultiPad)
-
-local multiExpandedSize = UDim2.new(0, 190, 0, 230)
-local MultiGrip = MakeResizable(MultiPad, Vector2.new(150, 150), Vector2.new(400, 400), function(s) multiExpandedSize = s end)
-
-local MMiniBtn = Instance.new("TextButton", MultiPad)
-MMiniBtn.Size = UDim2.new(0, 28, 0, 28)
-MMiniBtn.Position = UDim2.new(0, 5, 0, 0)
-MMiniBtn.BackgroundTransparency = 1
-MMiniBtn.Text = "▼"
-MMiniBtn.TextColor3 = IOS_BLUE
-MMiniBtn.Font = Enum.Font.GothamMedium
-MMiniBtn.TextSize = 13
-MMiniBtn.ZIndex = 101
-
-local MTitle = Instance.new("TextLabel", MultiPad)
-MTitle.Size = UDim2.new(1, -70, 0, 28)
-MTitle.Position = UDim2.new(0, 35, 0, 0)
-MTitle.BackgroundTransparency = 1
-MTitle.Text = "MULTIPLIER"
-MTitle.TextColor3 = Color3.fromRGB(180, 180, 190)
-MTitle.Font = Enum.Font.GothamMedium
-MTitle.TextSize = 10
-MTitle.TextXAlignment = "Left"
-MTitle.Active = true
-MTitle.ZIndex = 101
-MakeDraggable(MultiPad, MTitle)
-
-local MCloseBtn = Instance.new("TextButton", MultiPad)
-MCloseBtn.Size = UDim2.new(0, 28, 0, 28)
-MCloseBtn.Position = UDim2.new(1, -30, 0, 0)
-MCloseBtn.BackgroundTransparency = 1
-MCloseBtn.Text = "X"
-MCloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58)
-MCloseBtn.Font = Enum.Font.GothamBold
-MCloseBtn.TextSize = 13
-MCloseBtn.ZIndex = 101
-
-local MultiContent = Instance.new("Frame", MultiPad)
-MultiContent.Size = UDim2.new(1, -12, 1, -34)
-MultiContent.Position = UDim2.new(0, 6, 0, 28)
-MultiContent.BackgroundTransparency = 1
-MultiContent.ZIndex = 101
-local MCL = Instance.new("UIListLayout", MultiContent)
-MCL.Padding = UDim.new(0, 6)
-MCL.HorizontalAlignment = Enum.HorizontalAlignment.Center
+local MultiPad = Instance.new("Frame", ScreenGui); MultiPad.Size = UDim2.new(0, 190, 0, 205); MultiPad.Position = UDim2.new(0.5, -200, 0.4, 0); MultiPad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MultiPad.BackgroundTransparency = 0.35; MultiPad.Visible = false; MultiPad.Active = true; MultiPad.ClipsDescendants = true; MultiPad.ZIndex = 100; Instance.new("UICorner", MultiPad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(MultiPad)
+local multiExpandedSize = UDim2.new(0, 190, 0, 205); local MultiGrip = MakeResizable(MultiPad, Vector2.new(150, 150), Vector2.new(400, 400), function(s) multiExpandedSize = s end)
+MMiniBtn = Instance.new("TextButton", MultiPad); MMiniBtn.Size = UDim2.new(0, 28, 0, 28); MMiniBtn.Position = UDim2.new(0, 5, 0, 0); MMiniBtn.BackgroundTransparency = 1; MMiniBtn.Text = "▼"; MMiniBtn.TextColor3 = IOS_BLUE; MMiniBtn.Font = Enum.Font.GothamMedium; MMiniBtn.TextSize = 13; MMiniBtn.ZIndex = 101
+MTitle = Instance.new("TextLabel", MultiPad); MTitle.Size = UDim2.new(1, -70, 0, 28); MTitle.Position = UDim2.new(0, 35, 0, 0); MTitle.BackgroundTransparency = 1; MTitle.Text = "MULTIPLIER"; MTitle.TextColor3 = Color3.fromRGB(180, 180, 190); MTitle.Font = Enum.Font.GothamMedium; MTitle.TextSize = 10; MTitle.TextXAlignment = "Left"; MTitle.Active = true; MTitle.ZIndex = 101; MakeDraggable(MultiPad, MTitle)
+MCloseBtn = Instance.new("TextButton", MultiPad); MCloseBtn.Size = UDim2.new(0, 28, 0, 28); MCloseBtn.Position = UDim2.new(1, -30, 0, 0); MCloseBtn.BackgroundTransparency = 1; MCloseBtn.Text = "X"; MCloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58); MCloseBtn.Font = Enum.Font.GothamBold; MCloseBtn.TextSize = 13; MCloseBtn.ZIndex = 101
+MultiContent = Instance.new("Frame", MultiPad); MultiContent.Size = UDim2.new(1, -12, 1, -34); MultiContent.Position = UDim2.new(0, 6, 0, 28); MultiContent.BackgroundTransparency = 1; MultiContent.ZIndex = 101; MCL = Instance.new("UIListLayout", MultiContent); MCL.Padding = UDim.new(0, 6); MCL.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local isMultiMinimized = false
 local function ToggleMultiMinimize(forceMinimize)
     if forceMinimize ~= nil then isMultiMinimized = forceMinimize else isMultiMinimized = not isMultiMinimized end
-    if isMultiMinimized then MultiContent.Visible = false; MultiGrip.Visible = false; MultiPad:TweenSize(UDim2.new(0, multiExpandedSize.X.Offset, 0, 28), "Out", "Quart", 0.3, true); MMiniBtn.Text = "▶" 
-    else MultiContent.Visible = true; MultiGrip.Visible = true; MultiPad:TweenSize(multiExpandedSize, "Out", "Quart", 0.3, true); MMiniBtn.Text = "▼" end 
+    if isMultiMinimized then MultiContent.Visible = false; MultiGrip.Visible = false; MultiPad:TweenSize(UDim2.new(0, multiExpandedSize.X.Offset, 0, 28), "Out", "Quart", 0.3, true); MMiniBtn.Text = "▶" else MultiContent.Visible = true; MultiGrip.Visible = true; MultiPad:TweenSize(multiExpandedSize, "Out", "Quart", 0.3, true); MMiniBtn.Text = "▼" end 
 end
 MMiniBtn.MouseButton1Click:Connect(ToggleMultiMinimize)
 
-local currentMultiMode = "Both"
-local multiRadioBtns = {}
+local currentMultiMode = "Both"; local multiRadioBtns = {}
 local function CreateRadioBtn(parent, text, mode)
-    local Btn = Instance.new("TextButton", parent); Btn.Size = UDim2.new(0.92, 0, 0, 32); Btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Btn.BackgroundTransparency = 0.92; Btn.Text = ""; Btn.ZIndex = 101 
-    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 10)
-    local Square = Instance.new("Frame", Btn); Square.Size = UDim2.new(0, 16, 0, 16); Square.Position = UDim2.new(0, 10, 0.5, -8); Square.BorderSizePixel = 0; Square.ZIndex = 102
-    Instance.new("UICorner", Square).CornerRadius = UDim.new(1, 0)
+    local Btn = Instance.new("TextButton", parent); Btn.Size = UDim2.new(0.92, 0, 0, 32); Btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Btn.BackgroundTransparency = 0.92; Btn.Text = ""; Btn.ZIndex = 101; Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 10)
+    local Square = Instance.new("Frame", Btn); Square.Size = UDim2.new(0, 16, 0, 16); Square.Position = UDim2.new(0, 10, 0.5, -8); Square.BorderSizePixel = 0; Square.ZIndex = 102; Instance.new("UICorner", Square).CornerRadius = UDim.new(1, 0)
     local Label = Instance.new("TextLabel", Btn); Label.Size = UDim2.new(1, -36, 1, 0); Label.Position = UDim2.new(0, 35, 0, 0); Label.BackgroundTransparency = 1; Label.Text = text; Label.Font = Enum.Font.GothamMedium; Label.TextColor3 = Color3.fromRGB(240, 240, 245); Label.TextSize = 11; Label.TextXAlignment = "Left"; Label.ZIndex = 102
-    
     table.insert(multiRadioBtns, {btn = Btn, sq = Square, mode = mode})
-    local function refresh()
-        for _, v in pairs(multiRadioBtns) do
-            local isActive = (v.mode == currentMultiMode)
-            v.sq.BackgroundColor3 = isActive and IOS_BLUE or Color3.fromRGB(80, 80, 85)
-            v.sq.BackgroundTransparency = isActive and 0.1 or 0.6
-        end
-    end
-    Btn.MouseButton1Click:Connect(function() currentMultiMode = mode; refresh() end)
-    refresh()
-    return Btn
+    local function refresh() for _, v in pairs(multiRadioBtns) do local isActive = (v.mode == currentMultiMode); v.sq.BackgroundColor3 = isActive and IOS_BLUE or Color3.fromRGB(80, 80, 85); v.sq.BackgroundTransparency = isActive and 0.1 or 0.6 end end
+    Btn.MouseButton1Click:Connect(function() currentMultiMode = mode; refresh() end); refresh(); return Btn
 end
+CreateRadioBtn(MultiContent, "Chỉ Tốc Độ", "Speed"); CreateRadioBtn(MultiContent, "Chỉ Sức Nhảy", "Jump"); CreateRadioBtn(MultiContent, "Cả Hai (Both)", "Both")
 
-CreateRadioBtn(MultiContent, "Chỉ Tốc Độ", "Speed")
-CreateRadioBtn(MultiContent, "Chỉ Sức Nhảy", "Jump")
-CreateRadioBtn(MultiContent, "Cả Hai (Both)", "Both")
+InputMultiFrame = Instance.new("Frame", MultiContent); InputMultiFrame.Size = UDim2.new(0.92, 0, 0, 32); InputMultiFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255); InputMultiFrame.BackgroundTransparency = 0.92; InputMultiFrame.ZIndex = 101; Instance.new("UICorner", InputMultiFrame).CornerRadius = UDim.new(0, 10)
+InputMulti = Instance.new("TextBox", InputMultiFrame); InputMulti.Size = UDim2.new(1, -20, 1, 0); InputMulti.Position = UDim2.new(0, 10, 0, 0); InputMulti.BackgroundTransparency = 1; InputMulti.Text = ""; InputMulti.PlaceholderText = "Nhập X lần (VD: 5)..."; InputMulti.TextColor3 = Color3.new(1,1,1); InputMulti.Font = Enum.Font.GothamBold; InputMulti.TextSize = 11; InputMulti.TextXAlignment = "Left"; InputMulti.ZIndex = 102
+BtnMultiOK = Instance.new("TextButton", MultiContent); BtnMultiOK.Size = UDim2.new(0.92, 0, 0, 32); BtnMultiOK.Text = "XÁC NHẬN"; BtnMultiOK.BackgroundColor3 = IOS_BLUE; BtnMultiOK.BackgroundTransparency = 0.2; BtnMultiOK.TextColor3 = Color3.new(1,1,1); BtnMultiOK.Font = Enum.Font.GothamBold; BtnMultiOK.TextSize = 12; BtnMultiOK.ZIndex = 101; Instance.new("UICorner", BtnMultiOK).CornerRadius = UDim.new(0, 10)
 
-local InputMultiFrame = Instance.new("Frame", MultiContent); InputMultiFrame.Size = UDim2.new(0.92, 0, 0, 32); InputMultiFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255); InputMultiFrame.BackgroundTransparency = 0.92; InputMultiFrame.ZIndex = 101; Instance.new("UICorner", InputMultiFrame).CornerRadius = UDim.new(0, 10)
-local InputMulti = Instance.new("TextBox", InputMultiFrame); InputMulti.Size = UDim2.new(1, -20, 1, 0); InputMulti.Position = UDim2.new(0, 10, 0, 0); InputMulti.BackgroundTransparency = 1; InputMulti.Text = ""; InputMulti.PlaceholderText = "Nhập X lần (VD: 5)..."; InputMulti.TextColor3 = Color3.new(1,1,1); InputMulti.Font = Enum.Font.GothamBold; InputMulti.TextSize = 11; InputMulti.TextXAlignment = "Left"; InputMulti.ZIndex = 102
-
-local BtnMultiOK = Instance.new("TextButton", MultiContent); BtnMultiOK.Size = UDim2.new(0.92, 0, 0, 32); BtnMultiOK.Text = "XÁC NHẬN"; BtnMultiOK.BackgroundColor3 = IOS_BLUE; BtnMultiOK.BackgroundTransparency = 0.2; BtnMultiOK.TextColor3 = Color3.new(1,1,1); BtnMultiOK.Font = Enum.Font.GothamBold; BtnMultiOK.TextSize = 12; BtnMultiOK.ZIndex = 101; Instance.new("UICorner", BtnMultiOK).CornerRadius = UDim.new(0, 10)
-
-local multiMainBtn = nil 
 MCloseBtn.MouseButton1Click:Connect(function() 
-    MultiPad.Visible = false
-    if multiMainBtn and multiMainBtn:GetAttribute("IsActive") == true then multiMainBtn:SetAttribute("IsActive", false) end
+    MultiPad.Visible = false; if multiMainBtn and multiMainBtn:GetAttribute("IsActive") == true then multiMainBtn:SetAttribute("IsActive", false) end
     multiSpeedActive = false; multiJumpActive = false; multiVal = 1
-    local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
-    if hum then hum.WalkSpeed = baseWalkSpeed; hum.JumpPower = baseJumpPower; hum.JumpHeight = baseJumpHeight end
+    local hum = lp.Character and lp.Character:FindFirstChild("Humanoid"); if hum then hum.WalkSpeed = baseWalkSpeed; hum.JumpPower = baseJumpPower; hum.JumpHeight = baseJumpHeight end
 end)
 
 BtnMultiOK.MouseButton1Click:Connect(function()
     local val = tonumber(InputMulti.Text)
     if not val or val <= 0 then SendNotify("Lỗi", "Vui lòng nhập số hợp lệ!", 2); return end
     multiVal = val; multiSpeedActive = (currentMultiMode == "Speed" or currentMultiMode == "Both"); multiJumpActive = (currentMultiMode == "Jump" or currentMultiMode == "Both")
-    local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
-    if hum then baseWalkSpeed = hum.WalkSpeed; baseJumpPower = hum.JumpPower; baseJumpHeight = hum.JumpHeight end
-    
-    ToggleMultiMinimize(true) 
-    SendNotify("Multiplier", "BẬT thành công: Nhân x" .. val .. " lần!", 2.5)
+    local hum = lp.Character and lp.Character:FindFirstChild("Humanoid"); if hum then baseWalkSpeed = hum.WalkSpeed; baseJumpPower = hum.JumpPower; baseJumpHeight = hum.JumpHeight end
+    ToggleMultiMinimize(true); SendNotify("Multiplier", "BẬT thành công: Nhân x" .. val .. " lần!", 2.5)
 end)
--- [[ HẾT BẢNG NỔI MULTIPLIER ]]
+
+local RemotePad = Instance.new("Frame", ScreenGui); RemotePad.Size = UDim2.new(0, 220, 0, 260); RemotePad.Position = UDim2.new(0.5, 50, 0.4, 0); RemotePad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); RemotePad.BackgroundTransparency = 0.35; RemotePad.Visible = false; RemotePad.Active = true; RemotePad.ClipsDescendants = true; RemotePad.ZIndex = 100; Instance.new("UICorner", RemotePad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(RemotePad)
+local remoteExpandedSize = UDim2.new(0, 220, 0, 260); local RemoteGrip = MakeResizable(RemotePad, Vector2.new(150, 180), Vector2.new(500, 600), function(s) remoteExpandedSize = s end)
+RMiniBtn = Instance.new("TextButton", RemotePad); RMiniBtn.Size = UDim2.new(0, 28, 0, 28); RMiniBtn.Position = UDim2.new(0, 5, 0, 0); RMiniBtn.BackgroundTransparency = 1; RMiniBtn.Text = "▼"; RMiniBtn.TextColor3 = IOS_BLUE; RMiniBtn.Font = Enum.Font.GothamMedium; RMiniBtn.TextSize = 13; RMiniBtn.ZIndex = 101
+RTitle = Instance.new("TextLabel", RemotePad); RTitle.Size = UDim2.new(1, -70, 0, 28); RTitle.Position = UDim2.new(0, 35, 0, 0); RTitle.BackgroundTransparency = 1; RTitle.Text = "THỰC THI REMOTE"; RTitle.TextColor3 = Color3.fromRGB(180, 180, 190); RTitle.Font = Enum.Font.GothamMedium; RTitle.TextSize = 10; RTitle.TextXAlignment = "Left"; RTitle.Active = true; RTitle.ZIndex = 101; MakeDraggable(RemotePad, RTitle)
+RCloseBtn = Instance.new("TextButton", RemotePad); RCloseBtn.Size = UDim2.new(0, 28, 0, 28); RCloseBtn.Position = UDim2.new(1, -30, 0, 0); RCloseBtn.BackgroundTransparency = 1; RCloseBtn.Text = "X"; RCloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58); RCloseBtn.Font = Enum.Font.GothamBold; RCloseBtn.TextSize = 13; RCloseBtn.ZIndex = 101
+RemoteContent = Instance.new("Frame", RemotePad); RemoteContent.Size = UDim2.new(1, -12, 1, -34); RemoteContent.Position = UDim2.new(0, 6, 0, 28); RemoteContent.BackgroundTransparency = 1; RemoteContent.ZIndex = 101; RCL = Instance.new("UIListLayout", RemoteContent); RCL.Padding = UDim.new(0, 6); RCL.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local isRemoteMinimized = false
+RMiniBtn.MouseButton1Click:Connect(function() 
+    isRemoteMinimized = not isRemoteMinimized
+    if isRemoteMinimized then RemoteContent.Visible = false; RemoteGrip.Visible = false; RemotePad:TweenSize(UDim2.new(0, remoteExpandedSize.X.Offset, 0, 28), "Out", "Quart", 0.3, true); RMiniBtn.Text = "▶" else RemoteContent.Visible = true; RemoteGrip.Visible = true; RemotePad:TweenSize(remoteExpandedSize, "Out", "Quart", 0.3, true); RMiniBtn.Text = "▼" end 
+end)
+
+RCodeBg = Instance.new("Frame", RemoteContent); RCodeBg.Size = UDim2.new(1, 0, 1, -85); RCodeBg.BackgroundColor3 = Color3.fromRGB(15, 15, 20); Instance.new("UICorner", RCodeBg).CornerRadius = UDim.new(0, 8); RCodeBg.ZIndex = 101
+RCodeInput = Instance.new("TextBox", RCodeBg); RCodeInput.Size = UDim2.new(1, -10, 1, -10); RCodeInput.Position = UDim2.new(0, 5, 0, 5); RCodeInput.BackgroundTransparency = 1; RCodeInput.Text = ""; RCodeInput.PlaceholderText = "-- Dán Script Remote vào đây..."; RCodeInput.TextColor3 = Color3.new(1, 1, 1); RCodeInput.TextXAlignment = Enum.TextXAlignment.Left; RCodeInput.TextYAlignment = Enum.TextYAlignment.Top; RCodeInput.TextWrapped = true; RCodeInput.MultiLine = true; RCodeInput.ClearTextOnFocus = false; RCodeInput.Font = Enum.Font.Code; RCodeInput.TextSize = 10; RCodeInput.ZIndex = 102
+
+RDelayBg = Instance.new("Frame", RemoteContent); RDelayBg.Size = UDim2.new(1, 0, 0, 30); RDelayBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50); Instance.new("UICorner", RDelayBg).CornerRadius = UDim.new(0, 8); RDelayBg.ZIndex = 101
+RDelayBox = Instance.new("TextBox", RDelayBg); RDelayBox.Size = UDim2.new(1, -10, 1, 0); RDelayBox.Position = UDim2.new(0, 5, 0, 0); RDelayBox.BackgroundTransparency = 1; RDelayBox.Text = "0.1"; RDelayBox.PlaceholderText = "Delay Spam (VD: 0.1)..."; RDelayBox.TextColor3 = Color3.new(1, 1, 1); RDelayBox.Font = Enum.Font.GothamMedium; RDelayBox.TextSize = 11; RDelayBox.ZIndex = 102
+
+RBtnFrame = Instance.new("Frame", RemoteContent); RBtnFrame.Size = UDim2.new(1, 0, 0, 35); RBtnFrame.BackgroundTransparency = 1; RBtnFrame.ZIndex = 101
+RBtnExecute = Instance.new("TextButton", RBtnFrame); RBtnExecute.Size = UDim2.new(0.48, 0, 1, 0); RBtnExecute.BackgroundColor3 = IOS_BLUE; RBtnExecute.TextColor3 = Color3.new(1,1,1); RBtnExecute.Font = Enum.Font.GothamBold; RBtnExecute.TextSize = 10; RBtnExecute.Text = "CHẠY 1 LẦN"; Instance.new("UICorner", RBtnExecute).CornerRadius = UDim.new(0, 8); RBtnExecute.ZIndex = 102
+RBtnSpam = Instance.new("TextButton", RBtnFrame); RBtnSpam.Size = UDim2.new(0.48, 0, 1, 0); RBtnSpam.Position = UDim2.new(0.52, 0, 0, 0); RBtnSpam.BackgroundColor3 = Color3.fromRGB(255, 59, 48); RBtnSpam.TextColor3 = Color3.new(1,1,1); RBtnSpam.Font = Enum.Font.GothamBold; RBtnSpam.TextSize = 10; RBtnSpam.Text = "AUTO SPAM"; Instance.new("UICorner", RBtnSpam).CornerRadius = UDim.new(0, 8); RBtnSpam.ZIndex = 102
+
+local isSpammingRemote = false
+local function RunRemoteCode()
+    local code = RCodeInput.Text; if code == "" then return false, "Chưa nhập code!" end
+    local func, err = loadstring(code); if not func then return false, "Lỗi cú pháp: " .. tostring(err) end
+    local success, runErr = pcall(func); if not success then return false, "Lỗi thực thi: " .. tostring(runErr) end
+    return true, "Đã chạy thành công!"
+end
+
+RBtnExecute.MouseButton1Click:Connect(function() local s, m = RunRemoteCode(); if s then SendNotify("Remote", m, 1.5) else SendNotify("Lỗi", m, 3) end end)
+
+RBtnSpam.MouseButton1Click:Connect(function()
+    isSpammingRemote = not isSpammingRemote
+    if isSpammingRemote then
+        local code = RCodeInput.Text; if code == "" then isSpammingRemote = false; SendNotify("Lỗi", "Chưa nhập code!", 2); return end
+        local func, err = loadstring(code); if not func then isSpammingRemote = false; SendNotify("Lỗi", "Lỗi cú pháp: " .. tostring(err), 3); return end
+        RBtnSpam.BackgroundColor3 = Color3.fromRGB(52, 199, 89); RBtnSpam.Text = "ĐANG SPAM..."; SendNotify("Remote", "Bắt đầu Auto Spam!", 2)
+        task.spawn(function() while isSpammingRemote do local delayTime = tonumber(RDelayBox.Text) or 0.1; pcall(func); task.wait(delayTime) end end)
+    else
+        RBtnSpam.BackgroundColor3 = Color3.fromRGB(255, 59, 48); RBtnSpam.Text = "AUTO SPAM"; SendNotify("Remote", "Đã dừng Auto Spam!", 2)
+    end
+end)
+
+local remoteMainBtn = nil
+RCloseBtn.MouseButton1Click:Connect(function() 
+    RemotePad.Visible = false; if remoteMainBtn and remoteMainBtn:GetAttribute("IsActive") == true then remoteMainBtn:SetAttribute("IsActive", false) end
+    isSpammingRemote = false; RBtnSpam.BackgroundColor3 = Color3.fromRGB(255, 59, 48); RBtnSpam.Text = "AUTO SPAM"
+end)
 
 local MainFrame = Instance.new("Frame", ScreenGui); MainFrame.Size = UDim2.new(0, 240, 0, 480); MainFrame.Position = UDim2.new(0.5, -120, 0.4, 0); MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MainFrame.BackgroundTransparency = 0.35; MainFrame.Active = true; MainFrame.ClipsDescendants = true; MainFrame.BorderSizePixel = 0
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 18); ApplyIOSGlassEdge(MainFrame)
-local mainExpandedSize = UDim2.new(0, 240, 0, 480)
-local MainGrip = MakeResizable(MainFrame, Vector2.new(200, 200), Vector2.new(600, 800), function(s) mainExpandedSize = s end)
-
-local TitleBar = Instance.new("Frame", MainFrame); TitleBar.Size = UDim2.new(1, 0, 0, 40); TitleBar.BackgroundTransparency = 1; TitleBar.BorderSizePixel = 0
-local MiniBtn = Instance.new("TextButton", TitleBar); MiniBtn.Size = UDim2.new(0, 30, 0, 30); MiniBtn.Position = UDim2.new(0, 5, 0.5, -15); MiniBtn.Text = "▼"; MiniBtn.TextColor3 = IOS_BLUE; MiniBtn.BackgroundTransparency = 1; MiniBtn.Font = Enum.Font.GothamMedium; MiniBtn.TextSize = 16
-local TitleText = Instance.new("TextLabel", TitleBar); TitleText.Size = UDim2.new(1, -70, 1, 0); TitleText.Position = UDim2.new(0, 35, 0, 0); TitleText.Text = "VŨ KHOA V50 PRO"; TitleText.TextColor3 = Color3.fromRGB(255, 255, 255); TitleText.BackgroundTransparency = 1; TitleText.TextXAlignment = "Left"; TitleText.Font = Enum.Font.GothamMedium; TitleText.TextSize = 12
+local mainExpandedSize = UDim2.new(0, 240, 0, 480); local MainGrip = MakeResizable(MainFrame, Vector2.new(200, 200), Vector2.new(600, 800), function(s) mainExpandedSize = s end)
+TitleBar = Instance.new("Frame", MainFrame); TitleBar.Size = UDim2.new(1, 0, 0, 40); TitleBar.BackgroundTransparency = 1; TitleBar.BorderSizePixel = 0
+MiniBtn = Instance.new("TextButton", TitleBar); MiniBtn.Size = UDim2.new(0, 30, 0, 30); MiniBtn.Position = UDim2.new(0, 5, 0.5, -15); MiniBtn.Text = "▼"; MiniBtn.TextColor3 = IOS_BLUE; MiniBtn.BackgroundTransparency = 1; MiniBtn.Font = Enum.Font.GothamMedium; MiniBtn.TextSize = 16
+TitleText = Instance.new("TextLabel", TitleBar); TitleText.Size = UDim2.new(1, -70, 1, 0); TitleText.Position = UDim2.new(0, 35, 0, 0); TitleText.Text = "VŨ KHOA V50 PRO"; TitleText.TextColor3 = Color3.fromRGB(255, 255, 255); TitleText.BackgroundTransparency = 1; TitleText.TextXAlignment = "Left"; TitleText.Font = Enum.Font.GothamMedium; TitleText.TextSize = 12
 TitleText.Active = true; MakeDraggable(MainFrame, TitleText)
-local CloseBtn = Instance.new("TextButton", TitleBar); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -35, 0.5, -15); CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamMedium; CloseBtn.TextSize = 17
+CloseBtn = Instance.new("TextButton", TitleBar); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -35, 0.5, -15); CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamMedium; CloseBtn.TextSize = 17
 
-local TabBar = Instance.new("Frame", MainFrame); TabBar.Size = UDim2.new(1, 0, 0, 35); TabBar.Position = UDim2.new(0, 0, 0, 40); TabBar.BackgroundTransparency = 1
-local TabMainBtn = Instance.new("TextButton", TabBar); TabMainBtn.Size = UDim2.new(0.33, 0, 1, 0); TabMainBtn.BackgroundTransparency = 1; TabMainBtn.Text = "CHÍNH"; TabMainBtn.Font = Enum.Font.GothamBold; TabMainBtn.TextColor3 = IOS_BLUE; TabMainBtn.TextSize = 11
-local TabPage2Btn = Instance.new("TextButton", TabBar); TabPage2Btn.Size = UDim2.new(0.33, 0, 1, 0); TabPage2Btn.Position = UDim2.new(0.33, 0, 0, 0); TabPage2Btn.BackgroundTransparency = 1; TabPage2Btn.Text = "TRANG 2"; TabPage2Btn.Font = Enum.Font.GothamBold; TabPage2Btn.TextColor3 = Color3.fromRGB(150, 150, 160); TabPage2Btn.TextSize = 11
-local TabESPBtn = Instance.new("TextButton", TabBar); TabESPBtn.Size = UDim2.new(0.33, 0, 1, 0); TabESPBtn.Position = UDim2.new(0.66, 0, 0, 0); TabESPBtn.BackgroundTransparency = 1; TabESPBtn.Text = "ESP"; TabESPBtn.Font = Enum.Font.GothamBold; TabESPBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabESPBtn.TextSize = 11
-local TabHiddenBtn = Instance.new("TextButton", TabBar); TabHiddenBtn.Size = UDim2.new(0.25, 0, 1, 0); TabHiddenBtn.Position = UDim2.new(0.75, 0, 0, 0); TabHiddenBtn.BackgroundTransparency = 1; TabHiddenBtn.Text = "ẨN"; TabHiddenBtn.Font = Enum.Font.GothamBold; TabHiddenBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabHiddenBtn.TextSize = 11; TabHiddenBtn.Visible = false
-local TabIndicator = Instance.new("Frame", TabBar); TabIndicator.Size = UDim2.new(0.2, 0, 0, 2); TabIndicator.Position = UDim2.new(0.06, 0, 1, -2); TabIndicator.BackgroundColor3 = IOS_BLUE; TabIndicator.BorderSizePixel = 0; Instance.new("UICorner", TabIndicator).CornerRadius = UDim.new(1,0)
+TabBar = Instance.new("Frame", MainFrame); TabBar.Size = UDim2.new(1, 0, 0, 35); TabBar.Position = UDim2.new(0, 0, 0, 40); TabBar.BackgroundTransparency = 1
+TabMainBtn = Instance.new("TextButton", TabBar); TabMainBtn.Size = UDim2.new(0.33, 0, 1, 0); TabMainBtn.BackgroundTransparency = 1; TabMainBtn.Text = "CHÍNH"; TabMainBtn.Font = Enum.Font.GothamBold; TabMainBtn.TextColor3 = IOS_BLUE; TabMainBtn.TextSize = 11
+TabPage2Btn = Instance.new("TextButton", TabBar); TabPage2Btn.Size = UDim2.new(0.33, 0, 1, 0); TabPage2Btn.Position = UDim2.new(0.33, 0, 0, 0); TabPage2Btn.BackgroundTransparency = 1; TabPage2Btn.Text = "TRANG 2"; TabPage2Btn.Font = Enum.Font.GothamBold; TabPage2Btn.TextColor3 = Color3.fromRGB(150, 150, 160); TabPage2Btn.TextSize = 11
+TabESPBtn = Instance.new("TextButton", TabBar); TabESPBtn.Size = UDim2.new(0.33, 0, 1, 0); TabESPBtn.Position = UDim2.new(0.66, 0, 0, 0); TabESPBtn.BackgroundTransparency = 1; TabESPBtn.Text = "ESP"; TabESPBtn.Font = Enum.Font.GothamBold; TabESPBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabESPBtn.TextSize = 11
+TabHiddenBtn = Instance.new("TextButton", TabBar); TabHiddenBtn.Size = UDim2.new(0.25, 0, 1, 0); TabHiddenBtn.Position = UDim2.new(0.75, 0, 0, 0); TabHiddenBtn.BackgroundTransparency = 1; TabHiddenBtn.Text = "ẨN"; TabHiddenBtn.Font = Enum.Font.GothamBold; TabHiddenBtn.TextColor3 = Color3.fromRGB(150, 150, 160); TabHiddenBtn.TextSize = 11; TabHiddenBtn.Visible = false
+TabIndicator = Instance.new("Frame", TabBar); TabIndicator.Size = UDim2.new(0.2, 0, 0, 2); TabIndicator.Position = UDim2.new(0.06, 0, 1, -2); TabIndicator.BackgroundColor3 = IOS_BLUE; TabIndicator.BorderSizePixel = 0; Instance.new("UICorner", TabIndicator).CornerRadius = UDim.new(1,0)
 
-local ScrollMain = Instance.new("ScrollingFrame", MainFrame); ScrollMain.Size = UDim2.new(1, 0, 1, -80); ScrollMain.Position = UDim2.new(0, 0, 0, 80); ScrollMain.BackgroundTransparency = 1; ScrollMain.BorderSizePixel = 0; ScrollMain.ScrollBarThickness = 1.5; ScrollMain.CanvasSize = UDim2.new(0, 0, 0, 800)
-local ListMain = Instance.new("UIListLayout", ScrollMain); ListMain.Padding = UDim.new(0, 8); ListMain.HorizontalAlignment = Enum.HorizontalAlignment.Center
-local ScrollPage2 = Instance.new("ScrollingFrame", MainFrame); ScrollPage2.Size = UDim2.new(1, 0, 1, -80); ScrollPage2.Position = UDim2.new(0, 0, 0, 80); ScrollPage2.BackgroundTransparency = 1; ScrollPage2.BorderSizePixel = 0; ScrollPage2.ScrollBarThickness = 1.5; ScrollPage2.CanvasSize = UDim2.new(0, 0, 0, 480); ScrollPage2.Visible = false
-local ListPage2 = Instance.new("UIListLayout", ScrollPage2); ListPage2.Padding = UDim.new(0, 8); ListPage2.HorizontalAlignment = Enum.HorizontalAlignment.Center
-local ScrollESP = Instance.new("ScrollingFrame", MainFrame); ScrollESP.Size = UDim2.new(1, 0, 1, -80); ScrollESP.Position = UDim2.new(0, 0, 0, 80); ScrollESP.BackgroundTransparency = 1; ScrollESP.BorderSizePixel = 0; ScrollESP.ScrollBarThickness = 1.5; ScrollESP.CanvasSize = UDim2.new(0, 0, 0, 350); ScrollESP.Visible = false
-local ListESP = Instance.new("UIListLayout", ScrollESP); ListESP.Padding = UDim.new(0, 8); ListESP.HorizontalAlignment = Enum.HorizontalAlignment.Center
-local ScrollHidden = Instance.new("ScrollingFrame", MainFrame); ScrollHidden.Size = UDim2.new(1, 0, 1, -80); ScrollHidden.Position = UDim2.new(0, 0, 0, 80); ScrollHidden.BackgroundTransparency = 1; ScrollHidden.BorderSizePixel = 0; ScrollHidden.ScrollBarThickness = 1.5; ScrollHidden.CanvasSize = UDim2.new(0, 0, 0, 850); ScrollHidden.Visible = false
-local ListHidden = Instance.new("UIListLayout", ScrollHidden); ListHidden.Padding = UDim.new(0, 8); ListHidden.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ScrollMain = Instance.new("ScrollingFrame", MainFrame); ScrollMain.Size = UDim2.new(1, 0, 1, -80); ScrollMain.Position = UDim2.new(0, 0, 0, 80); ScrollMain.BackgroundTransparency = 1; ScrollMain.BorderSizePixel = 0; ScrollMain.ScrollBarThickness = 1.5; ScrollMain.CanvasSize = UDim2.new(0, 0, 0, 800)
+ListMain = Instance.new("UIListLayout", ScrollMain); ListMain.Padding = UDim.new(0, 8); ListMain.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ScrollPage2 = Instance.new("ScrollingFrame", MainFrame); ScrollPage2.Size = UDim2.new(1, 0, 1, -80); ScrollPage2.Position = UDim2.new(0, 0, 0, 80); ScrollPage2.BackgroundTransparency = 1; ScrollPage2.BorderSizePixel = 0; ScrollPage2.ScrollBarThickness = 1.5; ScrollPage2.CanvasSize = UDim2.new(0, 0, 0, 480); ScrollPage2.Visible = false
+ListPage2 = Instance.new("UIListLayout", ScrollPage2); ListPage2.Padding = UDim.new(0, 8); ListPage2.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ScrollESP = Instance.new("ScrollingFrame", MainFrame); ScrollESP.Size = UDim2.new(1, 0, 1, -80); ScrollESP.Position = UDim2.new(0, 0, 0, 80); ScrollESP.BackgroundTransparency = 1; ScrollESP.BorderSizePixel = 0; ScrollESP.ScrollBarThickness = 1.5; ScrollESP.CanvasSize = UDim2.new(0, 0, 0, 350); ScrollESP.Visible = false
+ListESP = Instance.new("UIListLayout", ScrollESP); ListESP.Padding = UDim.new(0, 8); ListESP.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ScrollHidden = Instance.new("ScrollingFrame", MainFrame); ScrollHidden.Size = UDim2.new(1, 0, 1, -80); ScrollHidden.Position = UDim2.new(0, 0, 0, 80); ScrollHidden.BackgroundTransparency = 1; ScrollHidden.BorderSizePixel = 0; ScrollHidden.ScrollBarThickness = 1.5; ScrollHidden.CanvasSize = UDim2.new(0, 0, 0, 950); ScrollHidden.Visible = false
+ListHidden = Instance.new("UIListLayout", ScrollHidden); ListHidden.Padding = UDim.new(0, 8); ListHidden.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local currentTabIndex = 1
 local tabFrames = { Main = {frame = ScrollMain, index = 1}, Page2 = {frame = ScrollPage2, index = 2}, ESP = {frame = ScrollESP, index = 3}, Hidden = {frame = ScrollHidden, index = 4} }
@@ -501,7 +442,6 @@ local ResetBtnFrame = CreateActionBtn(-47, "💀", function() local char = lp.Ch
 local BackPosBtnFrame = CreateActionBtn(5, "📍", function(btn) backPosActive = not backPosActive; if backPosActive and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then backPosCoord = lp.Character.HumanoidRootPart.CFrame; btn.Text = "⏪"; SendNotify("Back Pos", "Đã lưu vị trí!", 1.5) else backPosActive = false; if backPosCoord and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then lp.Character.HumanoidRootPart.CFrame = backPosCoord; SendNotify("Back Pos", "Dịch chuyển về chỗ cũ!", 1.5) end; btn.Text = "📍" end end)
 local GhostBtnFrame = CreateActionBtn(57, "👻", function(btn) ghostActive = not ghostActive; local char = lp.Character; if ghostActive and char and char:FindFirstChild("HumanoidRootPart") then lockedPos = char.HumanoidRootPart.CFrame; char.HumanoidRootPart.Anchored = true; char.Archivable = true; ghostModel = char:Clone(); ghostModel.Name = "VuKhoa_Ghost"; ghostModel.Parent = workspace; for _, v in pairs(ghostModel:GetDescendants()) do if v:IsA("BasePart") then v.Anchored = false; if v.Name ~= "HumanoidRootPart" then v.Transparency = 0.5 end end end; cam.CameraSubject = ghostModel:FindFirstChild("Humanoid"); btn.Text = "👤"; SendNotify("Hồn", "Tách hồn thành công!", 1.5) else ghostActive = false; if ghostModel and ghostModel:FindFirstChild("HumanoidRootPart") and char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false; char.HumanoidRootPart.CFrame = ghostModel.HumanoidRootPart.CFrame end; if ghostModel then ghostModel:Destroy(); ghostModel = nil end; if char then local hum = char:FindFirstChild("Humanoid"); if hum then cam.CameraSubject = hum end end; lockedPos = nil; btn.Text = "👻"; SendNotify("Hồn", "Nhập hồn thành công!", 1.5) end end)
 
--- [[ NÚT NỔI FAKE LAG & LOGIC BẬT/TẮT ĐỒNG BỘ UI ]]
 local FakeLagBtnFrame = CreateActionBtn(109, "🌐", function(btn)
     if fakeLagActive then TurnOffFakeLag() else TurnOnFakeLag() end
 end)
@@ -638,7 +578,7 @@ local function CreateBtn(parent, text, callback, defaultActive)
         local newState = not Btn:GetAttribute("IsActive")
         Btn:SetAttribute("IsActive", newState)
         callback(newState)
-        if text ~= "Fake Lag (Dồn Dame)" and text ~= "Multiplier Speed & Jump" then SendNotify("Cài Đặt", text .. (newState and " BẬT" or " TẮT"), 1.2) end
+        if text ~= "Fake Lag (Dồn Dame)" and text ~= "Multiplier Speed & Jump" and text ~= "Remote Executor (Thực Thi)" then SendNotify("Cài Đặt", text .. (newState and " BẬT" or " TẮT"), 1.2) end
     end)
     Btn:GetAttributeChangedSignal("IsActive"):Connect(UpdateState)
     return Btn
@@ -658,8 +598,7 @@ local function CreateSlider(parent, text, min, max, default, colorStart, colorEn
     local TrackBg = Instance.new("Frame", Frame); TrackBg.Size = UDim2.new(1, -20, 0, 8); TrackBg.Position = UDim2.new(0, 10, 0, 28); TrackBg.BackgroundColor3 = Color3.fromRGB(40, 40, 45); Instance.new("UICorner", TrackBg).CornerRadius = UDim.new(1, 0)
     local Fill = Instance.new("Frame", TrackBg); Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0); Fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Instance.new("UICorner", Fill).CornerRadius = UDim.new(1, 0)
     local Gradient = Instance.new("UIGradient", Fill)
-    if colorMiddle then Gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, colorStart), ColorSequenceKeypoint.new(0.5, colorMiddle), ColorSequenceKeypoint.new(1, colorEnd)})
-    else Gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, colorStart), ColorSequenceKeypoint.new(1, colorEnd)}) end
+    if colorMiddle then Gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, colorStart), ColorSequenceKeypoint.new(0.5, colorMiddle), ColorSequenceKeypoint.new(1, colorEnd)}) else Gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, colorStart), ColorSequenceKeypoint.new(1, colorEnd)}) end
     local Knob = Instance.new("Frame", Fill); Knob.Size = UDim2.new(0, 14, 0, 14); Knob.Position = UDim2.new(1, -7, 0.5, -7); Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Instance.new("UICorner", Knob).CornerRadius = UDim.new(1, 0)
     local dragging = false; local dragInput = nil 
     local function update(input) local percent = math.clamp((input.Position.X - TrackBg.AbsolutePosition.X) / TrackBg.AbsoluteSize.X, 0, 1); local value = math.floor(min + (max - min) * percent); Fill.Size = UDim2.new(percent, 0, 1, 0); Label.Text = text .. ": " .. value; callback(value) end
@@ -669,12 +608,10 @@ local function CreateSlider(parent, text, min, max, default, colorStart, colorEn
 end
 
 local MovePad = Instance.new("Frame", ScreenGui); MovePad.Size = UDim2.new(0, 190, 0, 195); MovePad.Position = UDim2.new(0.7, 0, 0.6, 0); MovePad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MovePad.BackgroundTransparency = 0.35; MovePad.Visible = false; MovePad.Active = true; MovePad.ClipsDescendants = true; Instance.new("UICorner", MovePad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(MovePad)
-local moveExpandedSize = UDim2.new(0, 190, 0, 195)
-local MoveGrip = MakeResizable(MovePad, Vector2.new(150, 150), Vector2.new(400, 400), function(s) moveExpandedSize = s end)
-
-local MPTitle = Instance.new("TextLabel", MovePad); MPTitle.Size = UDim2.new(1, -30, 0, 28); MPTitle.Position = UDim2.new(0, 12, 0, 0); MPTitle.BackgroundTransparency = 1; MPTitle.Text = "CONTROLLER"; MPTitle.TextColor3 = Color3.fromRGB(180, 180, 190); MPTitle.Font = Enum.Font.GothamMedium; MPTitle.TextSize = 10; MPTitle.TextXAlignment = "Left"; MPTitle.Active = true; MakeDraggable(MovePad, MPTitle)
-local PadGrid = Instance.new("Frame", MovePad); PadGrid.Size = UDim2.new(1, -12, 1, -34); PadGrid.Position = UDim2.new(0, 6, 0, 28); PadGrid.BackgroundTransparency = 1; local PGL = Instance.new("UIGridLayout", PadGrid); PGL.CellSize = UDim2.new(0.48, 0, 0, 32); PGL.CellPadding = UDim2.new(0.04, 0, 0, 6)
-local MPMiniBtn = Instance.new("TextButton", MovePad); MPMiniBtn.Size = UDim2.new(0, 28, 0, 28); MPMiniBtn.Position = UDim2.new(1, -28, 0, 0); MPMiniBtn.BackgroundTransparency = 1; MPMiniBtn.Text = "▼"; MPMiniBtn.TextColor3 = IOS_BLUE; MPMiniBtn.Font = Enum.Font.GothamMedium; MPMiniBtn.TextSize = 13
+local moveExpandedSize = UDim2.new(0, 190, 0, 195); MoveGrip = MakeResizable(MovePad, Vector2.new(150, 150), Vector2.new(400, 400), function(s) moveExpandedSize = s end)
+MPTitle = Instance.new("TextLabel", MovePad); MPTitle.Size = UDim2.new(1, -30, 0, 28); MPTitle.Position = UDim2.new(0, 12, 0, 0); MPTitle.BackgroundTransparency = 1; MPTitle.Text = "CONTROLLER"; MPTitle.TextColor3 = Color3.fromRGB(180, 180, 190); MPTitle.Font = Enum.Font.GothamMedium; MPTitle.TextSize = 10; MPTitle.TextXAlignment = "Left"; MPTitle.Active = true; MakeDraggable(MovePad, MPTitle)
+PadGrid = Instance.new("Frame", MovePad); PadGrid.Size = UDim2.new(1, -12, 1, -34); PadGrid.Position = UDim2.new(0, 6, 0, 28); PadGrid.BackgroundTransparency = 1; PGL = Instance.new("UIGridLayout", PadGrid); PGL.CellSize = UDim2.new(0.48, 0, 0, 32); PGL.CellPadding = UDim2.new(0.04, 0, 0, 6)
+MPMiniBtn = Instance.new("TextButton", MovePad); MPMiniBtn.Size = UDim2.new(0, 28, 0, 28); MPMiniBtn.Position = UDim2.new(1, -28, 0, 0); MPMiniBtn.BackgroundTransparency = 1; MPMiniBtn.Text = "▼"; MPMiniBtn.TextColor3 = IOS_BLUE; MPMiniBtn.Font = Enum.Font.GothamMedium; MPMiniBtn.TextSize = 13
 
 local isMoveMinimized = false
 MPMiniBtn.MouseButton1Click:Connect(function() 
@@ -688,13 +625,11 @@ for _, v in pairs(moves) do CreateBtn(PadGrid, v[1], function(s) if s then local
 CreateBtn(PadGrid, "Tap Wall", function(s) tapWallActive = s end); CreateBtn(PadGrid, "Mode: Face", function(s) moveModeFace = s end, true) 
 
 local LocationPad = Instance.new("Frame", ScreenGui); LocationPad.Size = UDim2.new(0, 190, 0, 150); LocationPad.Position = UDim2.new(0.2, 0, 0.4, 0); LocationPad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); LocationPad.BackgroundTransparency = 0.35; LocationPad.Visible = false; LocationPad.Active = true; LocationPad.ClipsDescendants = true; Instance.new("UICorner", LocationPad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(LocationPad)
-local locExpandedSize = UDim2.new(0, 190, 0, 150)
-local LocGrip = MakeResizable(LocationPad, Vector2.new(150, 100), Vector2.new(400, 500), function(s) locExpandedSize = s end)
-
-local LocMiniBtn = Instance.new("TextButton", LocationPad); LocMiniBtn.Size = UDim2.new(0, 28, 0, 28); LocMiniBtn.Position = UDim2.new(0, 5, 0, 0); LocMiniBtn.BackgroundTransparency = 1; LocMiniBtn.Text = "▼"; LocMiniBtn.TextColor3 = IOS_BLUE; LocMiniBtn.Font = Enum.Font.GothamMedium; LocMiniBtn.TextSize = 13
-local LocTitle = Instance.new("TextLabel", LocationPad); LocTitle.Size = UDim2.new(1, -70, 0, 28); LocTitle.Position = UDim2.new(0, 35, 0, 0); LocTitle.BackgroundTransparency = 1; LocTitle.Text = "LOCATION"; LocTitle.TextColor3 = Color3.fromRGB(180, 180, 190); LocTitle.Font = Enum.Font.GothamMedium; LocTitle.TextSize = 10; LocTitle.TextXAlignment = "Left"; LocTitle.Active = true; MakeDraggable(LocationPad, LocTitle)
-local LocCloseBtn = Instance.new("TextButton", LocationPad); LocCloseBtn.Size = UDim2.new(0, 28, 0, 28); LocCloseBtn.Position = UDim2.new(1, -30, 0, 0); LocCloseBtn.BackgroundTransparency = 1; LocCloseBtn.Text = "X"; LocCloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58); LocCloseBtn.Font = Enum.Font.GothamBold; LocCloseBtn.TextSize = 13
-local LocContent = Instance.new("Frame", LocationPad); LocContent.Size = UDim2.new(1, -12, 1, -34); LocContent.Position = UDim2.new(0, 6, 0, 28); LocContent.BackgroundTransparency = 1; local LCL = Instance.new("UIListLayout", LocContent); LCL.Padding = UDim.new(0, 6); LCL.HorizontalAlignment = Enum.HorizontalAlignment.Center
+locExpandedSize = UDim2.new(0, 190, 0, 150); LocGrip = MakeResizable(LocationPad, Vector2.new(150, 100), Vector2.new(400, 500), function(s) locExpandedSize = s end)
+LocMiniBtn = Instance.new("TextButton", LocationPad); LocMiniBtn.Size = UDim2.new(0, 28, 0, 28); LocMiniBtn.Position = UDim2.new(0, 5, 0, 0); LocMiniBtn.BackgroundTransparency = 1; LocMiniBtn.Text = "▼"; LocMiniBtn.TextColor3 = IOS_BLUE; LocMiniBtn.Font = Enum.Font.GothamMedium; LocMiniBtn.TextSize = 13
+LocTitle = Instance.new("TextLabel", LocationPad); LocTitle.Size = UDim2.new(1, -70, 0, 28); LocTitle.Position = UDim2.new(0, 35, 0, 0); LocTitle.BackgroundTransparency = 1; LocTitle.Text = "LOCATION"; LocTitle.TextColor3 = Color3.fromRGB(180, 180, 190); LocTitle.Font = Enum.Font.GothamMedium; LocTitle.TextSize = 10; LocTitle.TextXAlignment = "Left"; LocTitle.Active = true; MakeDraggable(LocationPad, LocTitle)
+LocCloseBtn = Instance.new("TextButton", LocationPad); LocCloseBtn.Size = UDim2.new(0, 28, 0, 28); LocCloseBtn.Position = UDim2.new(1, -30, 0, 0); LocCloseBtn.BackgroundTransparency = 1; LocCloseBtn.Text = "X"; LocCloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58); LocCloseBtn.Font = Enum.Font.GothamBold; LocCloseBtn.TextSize = 13
+LocContent = Instance.new("Frame", LocationPad); LocContent.Size = UDim2.new(1, -12, 1, -34); LocContent.Position = UDim2.new(0, 6, 0, 28); LocContent.BackgroundTransparency = 1; LCL = Instance.new("UIListLayout", LocContent); LCL.Padding = UDim.new(0, 6); LCL.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local isLocMinimized = false
 LocMiniBtn.MouseButton1Click:Connect(function() 
@@ -807,6 +742,15 @@ multiMainBtn = CreateBtn(ScrollHidden, "Multiplier Speed & Jump", function(s)
                 SendNotify("Multiplier", "Đã TẮT! Trả về gốc.", 2)
             end
         end
+    end
+end)
+
+remoteMainBtn = CreateBtn(ScrollHidden, "Remote Executor (Thực Thi)", function(s)
+    RemotePad.Visible = s
+    if not s then 
+        isSpammingRemote = false 
+        RBtnSpam.BackgroundColor3 = Color3.fromRGB(255, 59, 48); RBtnSpam.Text = "AUTO SPAM"
+        SendNotify("Remote", "Đã đóng bảng Thực thi Remote", 1.5)
     end
 end)
 
@@ -972,7 +916,6 @@ runService.RenderStepped:Connect(function(dt)
             if currentHum:GetState() == Enum.HumanoidStateType.Freefall then currentHum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics) end
         else currentHum.CameraOffset = Vector3.zero end
 
-        -- [[ MULTIPLIER FORCE LOOP ]]
         if multiSpeedActive then currentHum.WalkSpeed = baseWalkSpeed * multiVal end
         if multiJumpActive then 
             if currentHum.UseJumpPower then currentHum.JumpPower = baseJumpPower * multiVal

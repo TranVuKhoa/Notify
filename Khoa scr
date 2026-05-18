@@ -31,9 +31,8 @@ ghostModel, noRecoilActive = nil, false
 multiSpeedActive, multiJumpActive, multiVal = false, false, 1
 baseWalkSpeed, baseJumpPower, baseJumpHeight = 16, 50, 7.2
 
--- [[ BIẾN GAME HUB (KICK & WAVE) ]]
-skipAnimActive, waveSpeedActive, fastBlockActive = false, false, false
-waveSpeedPercent = 10
+-- [[ BIẾN GAME HUB ]]
+skipAnimActive, fastBlockActive = false, false
 
 -- [[ BIẾN FAKE LAG ]]
 fakeLagEnabled, fakeLagActive, fakeLagMode = false, false, "Stand"
@@ -436,7 +435,7 @@ CreateBtn = function(parent, text, callback, defaultActive)
     local Label = Instance.new("TextLabel", Btn); Label.Size = UDim2.new(1, -40, 1, 0); Label.Position = UDim2.new(0, 35, 0, 0); Label.BackgroundTransparency = 1; Label.Text = text; Label.Font = Enum.Font.Gotham; Label.TextColor3 = Color3.fromRGB(240, 240, 245); Label.TextSize = 12; Label.TextXAlignment = "Left"
     Btn:SetAttribute("IsActive", defaultActive or false)
     local function UpdateState() local isActive = Btn:GetAttribute("IsActive"); Square.BackgroundColor3 = isActive and IOS_BLUE or Color3.fromRGB(80, 80, 85); Square.BackgroundTransparency = isActive and 0.1 or 0.6 end; UpdateState()
-    Btn.MouseButton1Click:Connect(function() local newState = not Btn:GetAttribute("IsActive"); Btn:SetAttribute("IsActive", newState); callback(newState); if text ~= "Fake Lag (Dồn Dame)" and text ~= "Multiplier Speed & Jump" and text ~= "Remote Executor (Thực Thi)" and text ~= "Game Hub (Kick / Wave)" then SendNotify("Cài Đặt", text .. (newState and " BẬT" or " TẮT"), 1.2) end end)
+    Btn.MouseButton1Click:Connect(function() local newState = not Btn:GetAttribute("IsActive"); Btn:SetAttribute("IsActive", newState); callback(newState); if text ~= "Fake Lag (Dồn Dame)" and text ~= "Multiplier Speed & Jump" and text ~= "Remote Executor (Thực Thi)" and text ~= "Game Hub" then SendNotify("Cài Đặt", text .. (newState and " BẬT" or " TẮT"), 1.2) end end)
     Btn:GetAttributeChangedSignal("IsActive"):Connect(UpdateState); return Btn
 end
 
@@ -545,7 +544,7 @@ end)
 
 CreateBtn(ScrollHidden, "Remote Executor (Thực Thi)", function(s) RemotePad.Visible = s; if not s then isSpammingRemote = false; if RBtnSpam then RBtnSpam.BackgroundColor3 = Color3.fromRGB(255, 59, 48); RBtnSpam.Text = "AUTO SPAM" end; SendNotify("Remote", "Đã đóng bảng Thực thi Remote", 1.5) end end)
 
-CreateBtn(ScrollHidden, "Game Hub (Kick / Wave)", function(s) GameHubPad.Visible = s end)
+CreateBtn(ScrollHidden, "Game Hub", function(s) GameHubPad.Visible = s end)
 
 CreateBtn(ScrollHidden, "Hitbox", function(s) hitboxActive = s; if not s then for _, v in pairs(game.Players:GetPlayers()) do if v ~= lp and v.Character and v.Character:FindFirstChild("Head") then v.Character.Head.Size = Vector3.new(1.2, 1.2, 1.2); v.Character.Head.Transparency = 0; v.Character.Head.CanCollide = true; v.Character.Head.Massless = false end end end end)
 CreateSlider(ScrollHidden, "Hitbox Size", 1, 500, 100, COLOR_PINK, IOS_BLUE, function(val) currentHitboxSize = val end)
@@ -572,8 +571,6 @@ end)
 CreateBtn(GHContent, "God Mode 4", function(s) godMode4Active = s; if s then if lp.Character then applyGodMode4(lp.Character) end; if charAddedConn then charAddedConn:Disconnect() end; charAddedConn = lp.CharacterAdded:Connect(function(char) task.wait(1.5); if godMode4Active then applyGodMode4(char) end end) else if godMode4Conn then godMode4Conn:Disconnect(); godMode4Conn = nil end; if charAddedConn then charAddedConn:Disconnect(); charAddedConn = nil end; if lp.Character then local hum = lp.Character:FindFirstChild("Humanoid"); if hum then hum.BreakJointsOnDeath = true end end end end)
 CreateBtn(GHContent, "Fast Block (Bay 1 Giây)", function(s) fastBlockActive = s end)
 CreateBtn(GHContent, "Skip Anim (Bỏ Hoạt Ảnh)", function(s) skipAnimActive = s end)
-CreateBtn(GHContent, "Wave Speed (Chậm Sóng)", function(s) waveSpeedActive = s end)
-CreateSlider(GHContent, "Tốc Độ Sóng %", 1, 100, 10, IOS_BLUE, GRADIENT_PURPLE, function(val) waveSpeedPercent = val end)
 
 -- [[ LẮNG NGHE ĐỂ KHÓA TỐC ĐỘ CONSTRAINT KHI VỪA XUẤT HIỆN ]]
 workspace.DescendantAdded:Connect(function(v)
@@ -585,17 +582,6 @@ workspace.DescendantAdded:Connect(function(v)
             elseif v:IsA("BodyVelocity") then v.MaxForce = Vector3.new(math.huge, math.huge, math.huge); if v.Velocity.Magnitude > 1 then v.Velocity = v.Velocity.Unit * 5000 end
             elseif v:IsA("PrismaticConstraint") then v.MotorMaxForce = math.huge; v.ServoMaxForce = math.huge; pcall(function() v.Velocity = 5000 end); pcall(function() v.Speed = 5000 end) end
         end)
-    end
-end)
-
-task.spawn(function()
-    while task.wait(0.5) do
-        if waveSpeedActive then
-            for _, v in pairs(workspace:GetDescendants()) do if v:IsA("BasePart") and (v.Name:lower():match("wave") or v.Name:lower():match("tsunami")) then 
-                v.Velocity = Vector3.zero
-                local c = v.CFrame; v.CFrame = c:Lerp(CFrame.new(0, -100, 0), 1 - (waveSpeedPercent / 100))
-            end end
-        end
     end
 end)
 

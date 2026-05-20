@@ -1,10 +1,10 @@
+--- [Chú thích: Khởi tạo các biến cơ bản của người chơi và dịch vụ game]
 local lp = game:GetService("Players").LocalPlayer
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-
 local humanoid = character:WaitForChild("Humanoid")
 
--- chống chết
+--- [Chú thích: Chống vỡ xương nhân vật khi chết để tránh lỗi hiển thị]
 humanoid.BreakJointsOnDeath = false
 
 print("VuKhoa")
@@ -13,7 +13,7 @@ local uis = game:GetService("UserInputService")
 local rs = game:GetService("ReplicatedStorage")
 local cam = workspace.CurrentCamera
 
--- [[ BỘ LỌC TƯƠNG THÍCH DELTA X (UI PARENTING) ]]
+--- [Chú thích: BỘ LỌC TƯƠNG THÍCH CHO DELTA X (TÌM NƠI CHỨA UI)]
 local UI_PARENT = nil
 if gethui then 
     UI_PARENT = gethui() 
@@ -22,7 +22,7 @@ else
     if s then UI_PARENT = game:GetService("CoreGui") else UI_PARENT = lp:WaitForChild("PlayerGui") end
 end
 
--- [[ LẤY RAW INPUT ĐỂ CHỐNG ĐƠ GHOST ]]
+--- [Chú thích: Lấy dữ liệu di chuyển thật của phím/joystick để chống đơ khi xuất hồn]
 local getMoveVector = nil
 task.spawn(function()
     pcall(function()
@@ -32,25 +32,20 @@ task.spawn(function()
     end)
 end)
 
--- [[ HỆ THỐNG NGÔN NGỮ (LANGUAGE ENGINE) ]]
+--- [Chú thích: HỆ THỐNG NGÔN NGỮ (VI/EN)]
 local currentLang = "EN"
 local updateLangEvents = {}
-
-local function L(vi, en)
-    return currentLang == "VI" and vi or en
-end
-
+local function L(vi, en) return currentLang == "VI" and vi or en end
 local function ChangeLanguage(lang)
     currentLang = lang
     for _, fn in pairs(updateLangEvents) do pcall(fn) end
 end
-
 local function RegLang(obj, prop, vi, en)
     obj[prop] = L(vi, en)
     table.insert(updateLangEvents, function() obj[prop] = L(vi, en) end)
 end
 
--- Biến logic Hệ Thống
+--- [Chú thích: Khai báo các biến trạng thái (Bất tử, Silent Aim, Giật Lag...)]
 local godMode1Active, godMode2Active, godMode3Active, godMode4Active = false, false, false, false
 local silentAimActive = false
 local silentAimHeadshotRate = 100 
@@ -60,7 +55,7 @@ local godMode3Conn, godMode4Conn = nil, nil
 local ghostModel = nil
 local noRecoilActive = false
 
--- [[ BIẾN LOGIC MULTIPLIER ]]
+--- [Chú thích: Khai báo biến cho tính năng MULTIPLIER TỐC ĐỘ/NHẢY]
 local multiSpeedActive = false
 local multiJumpActive = false
 local multiVal = 1
@@ -68,7 +63,7 @@ local baseWalkSpeed = 16
 local baseJumpPower = 50
 local baseJumpHeight = 7.2
 
--- [[ BIẾN LOGIC FAKE LAG & BYPASS TELEPORT ]]
+--- [Chú thích: Khai báo biến cho tính năng FAKE LAG & BYPASS TELEPORT]
 local fakeLagEnabled = false
 local fakeLagActive = false
 local fakeLagMode = "Stand"
@@ -77,11 +72,10 @@ local fakeLagQueue = {}
 local frozenEntities = {}
 local fakeLagDescendantConn = nil
 local fakeLagMainBtn = nil
-
 local bypassTeleportActive = false
 local btStartCFrame = nil
 
--- [[ HỆ THỐNG HOÁN ĐỔI THỊ GIÁC & ANIMATION (VISUAL SWAP) ]]
+--- [Chú thích: HỆ THỐNG HOÁN ĐỔI THỊ GIÁC VÀ ANIMATION (Dùng cho Tách hồn, FakeLag)]
 local charTransCache = {}
 local ghostAnimTracks = {}
 local animSpeed = 0.5
@@ -161,7 +155,7 @@ local function UnfreezeAll()
     frozenEntities = {}
 end
 
--- [[ BIẾN LOGIC AUTO FLEE ]]
+--- [Chú thích: LOGIC TỰ ĐỘNG CHẠY TRỐN KHI MÁU YẾU (AUTO FLEE)]
 local safeHealthActive = false
 local safeHealthPercent = 30
 local safeHealthReturnPercent = 95
@@ -169,7 +163,7 @@ local isFleeing = false
 local preFleeCFrame = nil
 local fleePlatform = nil
 
--- [[ CACHE HỆ THỐNG ]]
+--- [Chú thích: Tối ưu FPS và chống AFK kick]
 local charPartsCache = {}
 local function cacheCharParts(character)
     charPartsCache = {}
@@ -186,6 +180,7 @@ pcall(function()
     lp.Idled:Connect(function() pcall(function() VirtualUser:CaptureController(); VirtualUser:ClickButton2(Vector2.new()) end) end)
 end)
 
+--- [Chú thích: Hàm hỗ trợ làm đẹp UI (Viền kính trong suốt kiểu iOS)]
 local function ApplyIOSGlassEdge(parent)
     local stroke = Instance.new("UIStroke", parent); stroke.Thickness = 1.2; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     local gradient = Instance.new("UIGradient", stroke); gradient.Rotation = 45
@@ -194,9 +189,9 @@ local function ApplyIOSGlassEdge(parent)
     return stroke
 end
 
+--- [Chú thích: Hệ thống gửi Thông báo (Notify) lên góc màn hình]
 local notifyEnabled = true
 local IOS_BLUE = Color3.fromRGB(10, 132, 255)
-
 local function SendNotify(title, text, duration)
     if not notifyEnabled then return end
     local NotifyGui = UI_PARENT:FindFirstChild("VuKhoa_Notify_System") or Instance.new("ScreenGui", UI_PARENT); NotifyGui.Name = "VuKhoa_Notify_System"
@@ -208,6 +203,7 @@ local function SendNotify(title, text, duration)
     task.delay(duration or 3.5, function() if Frame then Frame:Destroy() end end)
 end
 
+--- [Chú thích: Vòng lặp kiểm tra máu để kích hoạt Auto Flee]
 task.spawn(function()
     while task.wait(0.2) do
         if safeHealthActive and lp.Character then
@@ -230,6 +226,7 @@ task.spawn(function()
     end
 end)
 
+--- [Chú thích: Hàm tính toán mục tiêu gần nhất cho Silent Aim]
 local function getNearestTarget()
     local nearestDist = math.huge; local bestTarget = nil; local mPos = uis:GetMouseLocation()
     for _, p in pairs(game.Players:GetPlayers()) do
@@ -244,9 +241,9 @@ local function getNearestTarget()
     end
     return bestTarget
 end
-
 task.spawn(function() while task.wait(0.1) do if silentAimActive then currentSilentAimTarget = getNearestTarget() else currentSilentAimTarget = nil end end end)
 
+--- [Chú thích: HOOK METATABLE (Can thiệp vào lõi game để hack tốc độ, bypass server)]
 pcall(function()
     local mt = getrawmetatable(game)
     local oldIndex = mt.__index
@@ -256,8 +253,9 @@ pcall(function()
 
     mt.__index = newcclosure(function(self, key)
         if not checkcaller() then
-            if key == "WalkSpeed" and self:IsA("Humanoid") then return 16 end
-            if key == "JumpPower" and self:IsA("Humanoid") then return 50 end
+            -- Bypass Anti-cheat: Báo cho Server tốc độ gốc thực tế
+            if key == "WalkSpeed" and self:IsA("Humanoid") then return baseWalkSpeed end
+            if key == "JumpPower" and self:IsA("Humanoid") then return baseJumpPower end
         end
         return oldIndex(self, key)
     end)
@@ -265,9 +263,19 @@ pcall(function()
     mt.__newindex = newcclosure(function(self, key, value)
         if not checkcaller() and self:IsA("Humanoid") then
             if (godMode1Active or godMode3Active or godMode4Active) and (key == "Health" or key == "MaxHealth") then return end
-            if key == "WalkSpeed" and multiSpeedActive then return oldNewindex(self, key, baseWalkSpeed * multiVal) end
-            if key == "JumpPower" and multiJumpActive then return oldNewindex(self, key, baseJumpPower * multiVal) end
-            if key == "JumpHeight" and multiJumpActive then return oldNewindex(self, key, baseJumpHeight * multiVal) end
+            -- Tự động cập nhật mốc tốc độ nếu Server buff thêm tốc độ
+            if key == "WalkSpeed" and multiSpeedActive then
+                baseWalkSpeed = value 
+                return oldNewindex(self, key, value * multiVal)
+            end
+            if key == "JumpPower" and multiJumpActive then
+                baseJumpPower = value
+                return oldNewindex(self, key, value * multiVal)
+            end
+            if key == "JumpHeight" and multiJumpActive then
+                baseJumpHeight = value
+                return oldNewindex(self, key, value * multiVal)
+            end
         end
         return oldNewindex(self, key, value)
     end)
@@ -290,9 +298,11 @@ pcall(function()
                 end
             end
 
+            -- Chặn gửi Packet lên server khi Fake Lag đang bật
             if fakeLagActive then
                 if method == "FireServer" or method == "InvokeServer" then table.insert(fakeLagQueue, { Remote = self, Args = args, Method = method }); return nil end
             end
+            -- Bẻ cong tia đạn cho Silent Aim
             if silentAimActive and currentSilentAimTarget then
                 if method == "Raycast" then
                     local origin = args[1]; local dir = args[2]
@@ -311,8 +321,10 @@ pcall(function()
     setreadonly(mt, true)
 end)
 
+--- [Chú thích: Dọn dẹp UI cũ nếu script bị chạy lại nhiều lần]
 for _, old in pairs(UI_PARENT:GetChildren()) do if old.Name == "TrVuKhoaa_Sync_UI" or old.Name == "VuKhoa_Notify_System" or old.Name == "VuKhoa_ESP_Layer" then old:Destroy() end end
 
+--- [Chú thích: Khai báo hằng số, biến giao diện và màu sắc]
 local localMoveDir = Vector3.new(0,0,0); local currentSpeed = 2; local currentWalkSpeedLevel = 1; local currentHitboxSize = 100; local currentSpinSpeed = 50 
 local noclipActive, moonwalkActive, ghimActive, xrayActive, ghostActive, backPosActive = false, false, false, false, false, false
 local spinBotActive, fpsActive, tapWallActive, infJumpActive, hitboxActive = false, false, false, false, false
@@ -328,6 +340,7 @@ local GRADIENT_PURPLE = Color3.fromRGB(138, 43, 226); local COLOR_RED = Color3.f
 
 local ESPLayer = Instance.new("ScreenGui", UI_PARENT); ESPLayer.Name = "VuKhoa_ESP_Layer"; ESPLayer.IgnoreGuiInset = true; local espCache = {}
 
+--- [Chú thích: Hàm hỗ trợ cho UI (Kéo thả, Phóng to thu nhỏ bảng)]
 local function MakeDraggable(gui, dragHandle)
     dragHandle = dragHandle or gui; local dragging = false; local dragInput, dragStart, startPos
     dragHandle.InputBegan:Connect(function(input)
@@ -348,8 +361,10 @@ local function MakeResizable(frame, minSize, maxSize, onResize)
     return grip
 end
 
+--- [Chú thích: TẠO GIAO DIỆN NGƯỜI DÙNG (Main UI)]
 local ScreenGui = Instance.new("ScreenGui", UI_PARENT); ScreenGui.Name = "TrVuKhoaa_Sync_UI"; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
+--- [Chú thích: Tạo bảng tùy chọn Popup (ESP, Độn thổ, Fake Lag)]
 local PromptUI = Instance.new("Frame", ScreenGui); PromptUI.Size = UDim2.new(0, 200, 0, 130); PromptUI.Position = UDim2.new(0.5, -100, 0.5, -65); PromptUI.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PromptUI.BackgroundTransparency = 0.2; Instance.new("UICorner", PromptUI).CornerRadius = UDim.new(0, 12); ApplyIOSGlassEdge(PromptUI); PromptUI.Visible = false; PromptUI.ZIndex = 100
 PTitle = Instance.new("TextLabel", PromptUI); RegLang(PTitle, "Text", "CHỌN LOẠI TÊN ESP", "SELECT ESP NAME TYPE"); PTitle.Size = UDim2.new(1, 0, 0, 35); PTitle.BackgroundTransparency = 1; PTitle.TextColor3 = IOS_BLUE; PTitle.Font = Enum.Font.GothamBold; PTitle.TextSize = 13; PTitle.ZIndex = 101
 BtnUser = Instance.new("TextButton", PromptUI); BtnUser.Size = UDim2.new(0.8, 0, 0, 32); BtnUser.Position = UDim2.new(0.1, 0, 0, 42); RegLang(BtnUser, "Text", "Username (Tên Gốc)", "Username (Original)"); BtnUser.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnUser.TextColor3 = Color3.new(1,1,1); BtnUser.Font = Enum.Font.GothamMedium; BtnUser.TextSize = 12; Instance.new("UICorner", BtnUser).CornerRadius = UDim.new(0, 8); BtnUser.ZIndex = 101
@@ -365,8 +380,9 @@ PFLTitle = Instance.new("TextLabel", PromptFakeLag); RegLang(PFLTitle, "Text", "
 BtnFLStand = Instance.new("TextButton", PromptFakeLag); BtnFLStand.Size = UDim2.new(0.8, 0, 0, 32); BtnFLStand.Position = UDim2.new(0.1, 0, 0, 42); RegLang(BtnFLStand, "Text", "Đứng Yên (Về chỗ cũ)", "Stand Still (Return)"); BtnFLStand.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnFLStand.TextColor3 = Color3.new(1,1,1); BtnFLStand.Font = Enum.Font.GothamMedium; BtnFLStand.TextSize = 12; Instance.new("UICorner", BtnFLStand).CornerRadius = UDim.new(0, 8); BtnFLStand.ZIndex = 101
 BtnFLMove = Instance.new("TextButton", PromptFakeLag); BtnFLMove.Size = UDim2.new(0.8, 0, 0, 32); BtnFLMove.Position = UDim2.new(0.1, 0, 0, 82); RegLang(BtnFLMove, "Text", "Di Chuyển (Lướt Tới)", "Moving (Slide to target)"); BtnFLMove.BackgroundColor3 = Color3.fromRGB(40, 40, 50); BtnFLMove.TextColor3 = Color3.new(1,1,1); BtnFLMove.Font = Enum.Font.GothamMedium; BtnFLMove.TextSize = 12; Instance.new("UICorner", BtnFLMove).CornerRadius = UDim.new(0, 8); BtnFLMove.ZIndex = 101
 
-local MultiPad = Instance.new("Frame", ScreenGui); MultiPad.Size = UDim2.new(0, 190, 0, 205); MultiPad.Position = UDim2.new(0.5, -200, 0.4, 0); MultiPad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MultiPad.BackgroundTransparency = 0.35; MultiPad.Visible = false; MultiPad.Active = true; MultiPad.ClipsDescendants = true; MultiPad.ZIndex = 100; Instance.new("UICorner", MultiPad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(MultiPad)
-local multiExpandedSize = UDim2.new(0, 190, 0, 205); local MultiGrip = MakeResizable(MultiPad, Vector2.new(150, 150), Vector2.new(400, 400), function(s) multiExpandedSize = s end)
+--- [Chú thích: BẢNG NHÂN TỐC ĐỘ (MULTIPLIER PAD) và Nút hủy áp dụng]
+local MultiPad = Instance.new("Frame", ScreenGui); MultiPad.Size = UDim2.new(0, 190, 0, 245); MultiPad.Position = UDim2.new(0.5, -200, 0.4, 0); MultiPad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MultiPad.BackgroundTransparency = 0.35; MultiPad.Visible = false; MultiPad.Active = true; MultiPad.ClipsDescendants = true; MultiPad.ZIndex = 100; Instance.new("UICorner", MultiPad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(MultiPad)
+local multiExpandedSize = UDim2.new(0, 190, 0, 245); local MultiGrip = MakeResizable(MultiPad, Vector2.new(150, 150), Vector2.new(400, 400), function(s) multiExpandedSize = s end)
 MMiniBtn = Instance.new("TextButton", MultiPad); MMiniBtn.Size = UDim2.new(0, 28, 0, 28); MMiniBtn.Position = UDim2.new(0, 5, 0, 0); MMiniBtn.BackgroundTransparency = 1; MMiniBtn.Text = "▼"; MMiniBtn.TextColor3 = IOS_BLUE; MMiniBtn.Font = Enum.Font.GothamMedium; MMiniBtn.TextSize = 13; MMiniBtn.ZIndex = 101
 MTitle = Instance.new("TextLabel", MultiPad); MTitle.Size = UDim2.new(1, -70, 0, 28); MTitle.Position = UDim2.new(0, 35, 0, 0); MTitle.BackgroundTransparency = 1; MTitle.Text = "MULTIPLIER"; MTitle.TextColor3 = Color3.fromRGB(180, 180, 190); MTitle.Font = Enum.Font.GothamMedium; MTitle.TextSize = 10; MTitle.TextXAlignment = "Left"; MTitle.Active = true; MTitle.ZIndex = 101; MakeDraggable(MultiPad, MTitle)
 MCloseBtn = Instance.new("TextButton", MultiPad); MCloseBtn.Size = UDim2.new(0, 28, 0, 28); MCloseBtn.Position = UDim2.new(1, -30, 0, 0); MCloseBtn.BackgroundTransparency = 1; MCloseBtn.Text = "X"; MCloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58); MCloseBtn.Font = Enum.Font.GothamBold; MCloseBtn.TextSize = 13; MCloseBtn.ZIndex = 101
@@ -395,6 +411,8 @@ InputMultiFrame = Instance.new("Frame", MultiContent); InputMultiFrame.Size = UD
 InputMulti = Instance.new("TextBox", InputMultiFrame); InputMulti.Size = UDim2.new(1, -20, 1, 0); InputMulti.Position = UDim2.new(0, 10, 0, 0); InputMulti.BackgroundTransparency = 1; InputMulti.Text = ""; RegLang(InputMulti, "PlaceholderText", "Nhập X lần (VD: 5)...", "Enter Multiplier (Ex: 5)..."); InputMulti.TextColor3 = Color3.new(1,1,1); InputMulti.Font = Enum.Font.GothamBold; InputMulti.TextSize = 11; InputMulti.TextXAlignment = "Left"; InputMulti.ZIndex = 102
 BtnMultiOK = Instance.new("TextButton", MultiContent); BtnMultiOK.Size = UDim2.new(0.92, 0, 0, 32); RegLang(BtnMultiOK, "Text", "XÁC NHẬN", "CONFIRM"); BtnMultiOK.BackgroundColor3 = IOS_BLUE; BtnMultiOK.BackgroundTransparency = 0.2; BtnMultiOK.TextColor3 = Color3.new(1,1,1); BtnMultiOK.Font = Enum.Font.GothamBold; BtnMultiOK.TextSize = 12; BtnMultiOK.ZIndex = 101; Instance.new("UICorner", BtnMultiOK).CornerRadius = UDim.new(0, 10)
 
+BtnMultiCancel = Instance.new("TextButton", MultiContent); BtnMultiCancel.Size = UDim2.new(0.92, 0, 0, 32); RegLang(BtnMultiCancel, "Text", "hủy áp dụng", "cancel"); BtnMultiCancel.BackgroundColor3 = Color3.fromRGB(255, 69, 58); BtnMultiCancel.BackgroundTransparency = 0.2; BtnMultiCancel.TextColor3 = Color3.new(1,1,1); BtnMultiCancel.Font = Enum.Font.GothamBold; BtnMultiCancel.TextSize = 12; BtnMultiCancel.ZIndex = 101; Instance.new("UICorner", BtnMultiCancel).CornerRadius = UDim.new(0, 10)
+
 MCloseBtn.MouseButton1Click:Connect(function() 
     MultiPad.Visible = false; if multiMainBtn and multiMainBtn:GetAttribute("IsActive") == true then multiMainBtn:SetAttribute("IsActive", false) end
     multiSpeedActive = false; multiJumpActive = false; multiVal = 1
@@ -412,14 +430,39 @@ BtnMultiOK.MouseButton1Click:Connect(function()
     multiSpeedActive = (currentMultiMode == "Speed" or currentMultiMode == "Both")
     multiJumpActive = (currentMultiMode == "Jump" or currentMultiMode == "Both")
     
-    -- Fix lỗi nhân dồn bằng cách cố định giá trị chuẩn làm mốc
-    baseWalkSpeed = 16
-    baseJumpPower = 50
-    baseJumpHeight = 7.2
+    local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
+    if hum then
+        if not multiSpeedActive then baseWalkSpeed = hum.WalkSpeed end
+        if not multiJumpActive then
+            baseJumpPower = hum.JumpPower
+            baseJumpHeight = hum.JumpHeight
+        end
+    else
+        baseWalkSpeed = 16
+        baseJumpPower = 50
+        baseJumpHeight = 7.2
+    end
     
     ToggleMultiMinimize(true); SendNotify(L("Tốc Độ", "Multiplier"), L("BẬT thành công: Nhân x", "Enabled: Multiplier x") .. val .. L(" lần!", "!"), 2.5)
 end)
 
+BtnMultiCancel.MouseButton1Click:Connect(function()
+    multiSpeedActive = false
+    multiJumpActive = false
+    multiVal = 1
+    local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
+    if hum then
+        hum.WalkSpeed = baseWalkSpeed
+        if hum.UseJumpPower then
+            hum.JumpPower = baseJumpPower
+        else
+            hum.JumpHeight = baseJumpHeight
+        end
+    end
+    SendNotify(L("Tốc Độ", "Multiplier"), L("đã hủy áp dụng!", "canceled successfully!"), 2)
+end)
+
+--- [Chú thích: BẢNG CHẠY CODE REMOTE (Dùng để chích API, run script hòm)]
 local RemotePad = Instance.new("Frame", ScreenGui); RemotePad.Size = UDim2.new(0, 220, 0, 260); RemotePad.Position = UDim2.new(0.5, 50, 0.4, 0); RemotePad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); RemotePad.BackgroundTransparency = 0.35; RemotePad.Visible = false; RemotePad.Active = true; RemotePad.ClipsDescendants = true; RemotePad.ZIndex = 100; Instance.new("UICorner", RemotePad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(RemotePad)
 local remoteExpandedSize = UDim2.new(0, 220, 0, 260); local RemoteGrip = MakeResizable(RemotePad, Vector2.new(150, 180), Vector2.new(500, 600), function(s) remoteExpandedSize = s end)
 RMiniBtn = Instance.new("TextButton", RemotePad); RMiniBtn.Size = UDim2.new(0, 28, 0, 28); RMiniBtn.Position = UDim2.new(0, 5, 0, 0); RMiniBtn.BackgroundTransparency = 1; RMiniBtn.Text = "▼"; RMiniBtn.TextColor3 = IOS_BLUE; RMiniBtn.Font = Enum.Font.GothamMedium; RMiniBtn.TextSize = 13; RMiniBtn.ZIndex = 101
@@ -450,7 +493,6 @@ local function RunRemoteCode()
     local success, runErr = pcall(func); if not success then return false, L("Lỗi thực thi: ", "Execution error: ") .. tostring(runErr) end
     return true, L("Đã chạy thành công!", "Executed successfully!")
 end
-
 RBtnExecute.MouseButton1Click:Connect(function() local s, m = RunRemoteCode(); if s then SendNotify("Remote", m, 1.5) else SendNotify(L("Lỗi", "Error"), m, 3) end end)
 
 RBtnSpam.MouseButton1Click:Connect(function()
@@ -471,6 +513,7 @@ RCloseBtn.MouseButton1Click:Connect(function()
     isSpammingRemote = false; RBtnSpam.BackgroundColor3 = Color3.fromRGB(255, 59, 48); RBtnSpam.Text = "AUTO SPAM"
 end)
 
+--- [Chú thích: BẢNG MENU ĐIỀU KHIỂN CHÍNH (MAIN UI FRAME)]
 local MainFrame = Instance.new("Frame", ScreenGui); MainFrame.Size = UDim2.new(0, 240, 0, 480); MainFrame.Position = UDim2.new(0.5, -120, 0.4, 0); MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MainFrame.BackgroundTransparency = 0.35; MainFrame.Active = true; MainFrame.ClipsDescendants = true; MainFrame.BorderSizePixel = 0
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 18); ApplyIOSGlassEdge(MainFrame)
 local mainExpandedSize = UDim2.new(0, 240, 0, 480); local MainGrip = MakeResizable(MainFrame, Vector2.new(200, 200), Vector2.new(600, 800), function(s) mainExpandedSize = s end)
@@ -480,6 +523,7 @@ TitleText = Instance.new("TextLabel", TitleBar); TitleText.Size = UDim2.new(1, -
 TitleText.Active = true; MakeDraggable(MainFrame, TitleText)
 CloseBtn = Instance.new("TextButton", TitleBar); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -35, 0.5, -15); CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 69, 58); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamMedium; CloseBtn.TextSize = 17
 
+--- [Chú thích: THANH ĐIỀU HƯỚNG CÁC TAB (Tabs Navigation)]
 TabBar = Instance.new("Frame", MainFrame); TabBar.Size = UDim2.new(1, 0, 0, 35); TabBar.Position = UDim2.new(0, 0, 0, 40); TabBar.BackgroundTransparency = 1
 
 TabMainBtn = Instance.new("TextButton", TabBar); TabMainBtn.Size = UDim2.new(0.25, 0, 1, 0); TabMainBtn.BackgroundTransparency = 1; RegLang(TabMainBtn, "Text", "CHÍNH", "MAIN"); TabMainBtn.Font = Enum.Font.GothamBold; TabMainBtn.TextColor3 = IOS_BLUE; TabMainBtn.TextSize = 11
@@ -490,6 +534,7 @@ TabInfoBtn = Instance.new("TextButton", TabBar); TabInfoBtn.Size = UDim2.new(0.2
 
 TabIndicator = Instance.new("Frame", TabBar); TabIndicator.Size = UDim2.new(0.20, 0, 0, 2); TabIndicator.Position = UDim2.new(0.025, 0, 1, -2); TabIndicator.BackgroundColor3 = IOS_BLUE; TabIndicator.BorderSizePixel = 0; Instance.new("UICorner", TabIndicator).CornerRadius = UDim.new(1,0)
 
+--- [Chú thích: TẠO CÁC DANH SÁCH CUỘN CHỨA TÍNH NĂNG THEO TAB]
 ScrollMain = Instance.new("ScrollingFrame", MainFrame); ScrollMain.Size = UDim2.new(1, 0, 1, -80); ScrollMain.Position = UDim2.new(0, 0, 0, 80); ScrollMain.BackgroundTransparency = 1; ScrollMain.BorderSizePixel = 0; ScrollMain.ScrollBarThickness = 1.5; ScrollMain.CanvasSize = UDim2.new(0, 0, 0, 850)
 ListMain = Instance.new("UIListLayout", ScrollMain); ListMain.Padding = UDim.new(0, 8); ListMain.HorizontalAlignment = Enum.HorizontalAlignment.Center
 ScrollPage2 = Instance.new("ScrollingFrame", MainFrame); ScrollPage2.Size = UDim2.new(1, 0, 1, -80); ScrollPage2.Position = UDim2.new(0, 0, 0, 80); ScrollPage2.BackgroundTransparency = 1; ScrollPage2.BorderSizePixel = 0; ScrollPage2.ScrollBarThickness = 1.5; ScrollPage2.CanvasSize = UDim2.new(0, 0, 0, 520); ScrollPage2.Visible = false
@@ -504,6 +549,7 @@ ListInfo = Instance.new("UIListLayout", ScrollInfo); ListInfo.Padding = UDim.new
 local currentTabIndex = 1
 local tabFrames = { Main = {frame = ScrollMain, index = 1}, Page2 = {frame = ScrollPage2, index = 2}, ESP = {frame = ScrollESP, index = 3}, Hidden = {frame = ScrollHidden, index = 4}, Info = {frame = ScrollInfo, index = 5} }
 
+--- [Chú thích: Logic chuyển tab và cập nhật viền tab]
 local function SwitchTab(tabName)
     local targetData = tabFrames[tabName]; local newIndex = targetData.index; local tweenTime = 0.25
     if newIndex ~= currentTabIndex then
@@ -555,6 +601,7 @@ TabESPBtn.MouseButton1Click:Connect(function() SwitchTab("ESP") end)
 TabHiddenBtn.MouseButton1Click:Connect(function() SwitchTab("Hidden") end)
 TabInfoBtn.MouseButton1Click:Connect(function() SwitchTab("Info") end)
 
+--- [Chú thích: Hàm tạo Label nổi (VD: Hiện FPS, Hiện đếm địch)]
 local function CreateFloatingPill(xOffset, defaultText)
     local Pill = Instance.new("Frame", ScreenGui); Pill.Size = UDim2.new(0, 90, 0, 36); Pill.Position = UDim2.new(0.5, xOffset, 0, 20); Pill.BackgroundColor3 = Color3.fromRGB(25, 25, 32); Pill.BackgroundTransparency = 0.35; Pill.BorderSizePixel = 0; Pill.Visible = false; Instance.new("UICorner", Pill).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(Pill)
     local Label = Instance.new("TextLabel", Pill); Label.Size = UDim2.new(1, 0, 1, 0); Label.BackgroundTransparency = 1; Label.Text = defaultText; Label.Font = Enum.Font.GothamMedium; Label.TextColor3 = IOS_BLUE; Label.TextSize = 13; MakeDraggable(Pill); return Pill, Label
@@ -562,6 +609,7 @@ end
 local FpsPill, FpsLabel = CreateFloatingPill(-100, "FPS: 0")
 local CountPill, CountLabel = CreateFloatingPill(10, "Địch: 0")
 
+--- [Chú thích: Hàm tạo các Nút Action nhỏ trên màn hình (Ghost, Reset, Lưu Pos...)]
 local function CreateActionBtn(xOffset, text, clickFunc, yOffset)
     local yAdd = yOffset or 0
     local Frm = Instance.new("Frame", ScreenGui); Frm.Size = UDim2.new(0, 42, 0, 42); Frm.Position = UDim2.new(0.5, xOffset, 0.1, yAdd); Frm.BackgroundColor3 = Color3.fromRGB(25, 25, 32); Frm.BackgroundTransparency = 0.35; Frm.BorderSizePixel = 0; Frm.Visible = false; Instance.new("UICorner", Frm).CornerRadius = UDim.new(1, 0); ApplyIOSGlassEdge(Frm)
@@ -622,6 +670,7 @@ local BypassBtnFrame = CreateActionBtn(109, "🛸", function(btn)
     if bypassTeleportActive then TurnOffBypassTeleport() else TurnOnBypassTeleport() end
 end, 50) 
 
+--- [Chú thích: Thuật toán bật Fake Lag (Dồn packet và đi dạo hồn)]
 function TurnOnFakeLag()
     fakeLagActive = true
     fakeLagQueue = {}
@@ -657,6 +706,7 @@ function TurnOnFakeLag()
     SendNotify("Fake Lag", L("Đã BẬT! Chế độ: ", "ENABLED! Mode: ") .. modeName, 2)
 end
 
+--- [Chú thích: Tắt Fake Lag (Xả gói tin packet và lướt vị trí tới)]
 function TurnOffFakeLag()
     fakeLagActive = false
     local packetCount = #fakeLagQueue
@@ -718,6 +768,7 @@ function TurnOffFakeLag()
     end)
 end
 
+--- [Chú thích: Bật Bypass Teleport (Đóng băng xác thật, lướt xác ma)]
 function TurnOnBypassTeleport()
     local char = lp.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
@@ -740,6 +791,7 @@ function TurnOnBypassTeleport()
     SendNotify("Bypass Teleport", L("Đã BẬT! Bạn đang đi dạo bằng xác chính.", "ENABLED! Walking as real body."), 2.5)
 end
 
+--- [Chú thích: Tắt Bypass Teleport (Tính toán lướt theo nhịp để tránh bị giật lại)]
 function TurnOffBypassTeleport()
     local char = lp.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") or not ghostModel then
@@ -801,6 +853,7 @@ BtnFLMove.MouseButton1Click:Connect(function()
     TurnOnFakeLag()
 end)
 
+--- [Chú thích: Hàm sinh Button (Nút gạt bật tắt)]
 local function CreateBtn(parent, textData, callback, defaultActive)
     local isTranslating = type(textData) == "table"
     local viText = isTranslating and textData[1] or textData
@@ -833,6 +886,7 @@ local function CreateBtn(parent, textData, callback, defaultActive)
     return Btn
 end
 
+--- [Chú thích: Hàm sinh Input Box (Ô nhập liệu)]
 local function CreateInput(parent, titleData, placeholderData, callback)
     local viTitle = type(titleData)=="table" and titleData[1] or titleData; local enTitle = type(titleData)=="table" and titleData[2] or titleData
     local viPlace = type(placeholderData)=="table" and placeholderData[1] or placeholderData; local enPlace = type(placeholderData)=="table" and placeholderData[2] or placeholderData
@@ -848,6 +902,7 @@ local function CreateInput(parent, titleData, placeholderData, callback)
     return Frame
 end
 
+--- [Chú thích: Hàm sinh Slider (Thanh kéo điều chỉnh thông số)]
 local function CreateSlider(parent, textData, min, max, default, colorStart, colorEnd, callback, colorMiddle)
     local viText = type(textData)=="table" and textData[1] or textData; local enText = type(textData)=="table" and textData[2] or textData
     
@@ -870,6 +925,7 @@ local function CreateSlider(parent, textData, min, max, default, colorStart, col
     return Frame
 end
 
+--- [Chú thích: TẠO BẢNG ĐIỀU KHIỂN JOYSTICK ẢO (Move Pad)]
 local MovePad = Instance.new("Frame", ScreenGui); MovePad.Size = UDim2.new(0, 190, 0, 195); MovePad.Position = UDim2.new(0.7, 0, 0.6, 0); MovePad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MovePad.BackgroundTransparency = 0.35; MovePad.Visible = false; MovePad.Active = true; MovePad.ClipsDescendants = true; Instance.new("UICorner", MovePad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(MovePad)
 local moveExpandedSize = UDim2.new(0, 190, 0, 195); MoveGrip = MakeResizable(MovePad, Vector2.new(150, 150), Vector2.new(400, 400), function(s) moveExpandedSize = s end)
 MPTitle = Instance.new("TextLabel", MovePad); MPTitle.Size = UDim2.new(1, -30, 0, 28); MPTitle.Position = UDim2.new(0, 12, 0, 0); MPTitle.BackgroundTransparency = 1; RegLang(MPTitle, "Text", "ĐIỀU KHIỂN", "CONTROLLER"); MPTitle.TextColor3 = Color3.fromRGB(180, 180, 190); MPTitle.Font = Enum.Font.GothamMedium; MPTitle.TextSize = 10; MPTitle.TextXAlignment = "Left"; MPTitle.Active = true; MakeDraggable(MovePad, MPTitle)
@@ -887,6 +943,7 @@ local moves = {{{"Tiến","Fwd"},Vector3.new(0,0,-1)},{{"Lùi","Bwd"},Vector3.ne
 for _, v in pairs(moves) do CreateBtn(PadGrid, v[1], function(s) if s then localMoveDir += v[2] else localMoveDir -= v[2] end end) end
 CreateBtn(PadGrid, {"Lướt Tường", "Tap Wall"}, function(s) tapWallActive = s end); CreateBtn(PadGrid, {"Góc: Mặt", "Mode: Face"}, function(s) moveModeFace = s end, true) 
 
+--- [Chú thích: TẠO BẢNG VỊ TRÍ (LOCATION PAD - Inf Jump, Noclip, Speed)]
 local LocationPad = Instance.new("Frame", ScreenGui); LocationPad.Size = UDim2.new(0, 190, 0, 200); LocationPad.Position = UDim2.new(0.2, 0, 0.4, 0); LocationPad.BackgroundColor3 = Color3.fromRGB(25, 25, 32); LocationPad.BackgroundTransparency = 0.35; LocationPad.Visible = false; LocationPad.Active = true; LocationPad.ClipsDescendants = true; Instance.new("UICorner", LocationPad).CornerRadius = UDim.new(0, 16); ApplyIOSGlassEdge(LocationPad)
 locExpandedSize = UDim2.new(0, 190, 0, 200); LocGrip = MakeResizable(LocationPad, Vector2.new(150, 100), Vector2.new(400, 500), function(s) locExpandedSize = s end)
 LocMiniBtn = Instance.new("TextButton", LocationPad); LocMiniBtn.Size = UDim2.new(0, 28, 0, 28); LocMiniBtn.Position = UDim2.new(0, 5, 0, 0); LocMiniBtn.BackgroundTransparency = 1; LocMiniBtn.Text = "▼"; LocMiniBtn.TextColor3 = IOS_BLUE; LocMiniBtn.Font = Enum.Font.GothamMedium; LocMiniBtn.TextSize = 13
@@ -907,9 +964,7 @@ CreateBtn(LocContent, {"Xuyên Tường (Noclip)", "Noclip"}, function(s) noclip
 CreateInput(LocContent, {"Tốc Độ", "Speed (1-100)"}, {"Tốc độ...", "Speed..."}, function(val) if val == "" or tonumber(val) == nil then currentWalkSpeedLevel = 1 else currentWalkSpeedLevel = math.clamp(tonumber(val), 1, 100) end end)
 CreateSlider(LocContent, {"Tốc Độ Hoạt Ảnh", "Animation Speed"}, 1, 50, 5, COLOR_PINK, IOS_BLUE, function(val) animSpeed = val/10 end)
 
------------------------------------------------------------
--- [ TAB 1: CHÍNH ]
------------------------------------------------------------
+--- [Chú thích: NỘI DUNG TAB 1 (CHÍNH)]
 CreateBtn(ScrollMain, {"Xoay Vòng Chóng Mặt", "Spin Bot"}, function(s) spinBotActive = s end)
 CreateSlider(ScrollMain, {"Tốc Độ Xoay", "Spin Bot Speed"}, 1, 100, 50, COLOR_RED, GRADIENT_PURPLE, function(val) currentSpinSpeed = val end)
 CreateBtn(ScrollMain, {"Đi Lùi (Moonwalk)", "Moonwalk"}, function(s) moonwalkActive = s end)
@@ -921,20 +976,16 @@ CreateBtn(ScrollMain, {"Nút Xuất Hồn (Ghost)", "Ghost Button"}, function(s)
 CreateBtn(ScrollMain, {"Nút Ép Tự Tử (Reset)", "Reset Button"}, function(s) ResetBtnFrame.Visible = s end)
 CreateBtn(ScrollMain, {"Nút Lưu Vị Trí Hồi Sinh", "Spawn Button"}, function(s) SpawnBtnFrame.Visible = s end)
 CreateBtn(ScrollMain, {"Nút Quay Về Chỗ Cũ", "Return Pos Button"}, function(s) BackPosBtnFrame.Visible = s end)
-
 fakeLagMainBtn = CreateBtn(ScrollMain, {"Giật Lag Ảo (Fake Lag)", "Fake Lag (Delay Packets)"}, function(s)
     fakeLagEnabled = s
     if s then PromptFakeLag.Visible = true else PromptFakeLag.Visible = false; FakeLagBtnFrame.Visible = false; if fakeLagActive then TurnOffFakeLag() end end
 end)
-
 CreateBtn(ScrollMain, {"Nổi Teleport Tàng Hình (Bypass)", "Floating Teleport Bypass"}, function(s)
     BypassBtnFrame.Visible = s
     if not s and bypassTeleportActive then TurnOffBypassTeleport() end
 end)
 
------------------------------------------------------------
--- [ TAB 2: TRANG 2 ]
------------------------------------------------------------
+--- [Chú thích: NỘI DUNG TAB 2 (TRANG 2 - God Modes)]
 CreateBtn(ScrollPage2, {"Mở Tab Tính Năng Ẩn", "Unlock Hidden Features"}, function(s) UpdateTabs(s); if s then SwitchTab("Hidden") end end)
 
 local function applyGodMode1(char)
@@ -974,10 +1025,7 @@ CreateBtn(ScrollPage2, {"Chế Độ Xác Sống (Zombie)", "Zombie Mode (No Dea
 
 CreateBtn(ScrollPage2, {"Ghim Chết Vị Trí", "Lock Position"}, function(s) ghimActive = s; if s and lp.Character then lockedPos = lp.Character.HumanoidRootPart.CFrame end end)
 
------------------------------------------------------------
--- [ TAB MỚI: TÍNH NĂNG ẨN ]
------------------------------------------------------------
-
+--- [Chú thích: NỘI DUNG TAB TÍNH NĂNG ẨN (Up/Down, Hitbox, Multiplier)]
 local function ForceYPosition(offsetY)
     if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
         local params = RaycastParams.new(); params.FilterDescendantsInstances = {lp.Character, ghostModel}; params.FilterType = Enum.RaycastFilterType.Exclude; params.IgnoreWater = true
@@ -993,6 +1041,8 @@ CreateBtn(ScrollHidden, {"Độn Thổ / Bay Lên", "Up/Down Mode"}, function(s)
 CreateBtn(ScrollHidden, {"Tự Động Chạy Trốn Khi Yếu", "Safe Health (Auto Flee)"}, function(s) safeHealthActive = s end)
 CreateSlider(ScrollHidden, {"Máu Nguy Hiểm (Cần Chạy) %", "Danger Health (Flee) %"}, 1, 99, 30, COLOR_RED, GRADIENT_PURPLE, function(val) safeHealthPercent = val end, COLOR_BLUE)
 CreateSlider(ScrollHidden, {"Máu An Toàn (Quay Lại) %", "Safe Return Health %"}, 1, 100, 95, Color3.fromRGB(0,0,0), Color3.fromRGB(255,255,255), function(val) safeHealthReturnPercent = val end)
+
+--- [Chú thích: Mod súng - Loại bỏ độ giật]
 CreateBtn(ScrollHidden, {"Súng Không Giật (No Recoil)", "No Recoil"}, function(s) noRecoilActive = s; if s then task.spawn(function() pcall(function() for _, v in pairs(getgc(true)) do if type(v) == "table" and rawget(v, "Recoil") ~= nil then rawset(v, "Recoil", 0); if rawget(v, "MaxSpread") ~= nil then rawset(v, "MaxSpread", 0) end; if rawget(v, "CameraKick") ~= nil then rawset(v, "CameraKick", 0) end end end end) end) end end)
 CreateBtn(ScrollHidden, {"Ghim Tâm Chuẩn Xác (Silent Aim)", "Silent Aim"}, function(s) silentAimActive = s end)
 CreateSlider(ScrollHidden, {"Tỉ Lệ Trúng Đầu %", "Headshot Rate %"}, 0, 100, 100, IOS_BLUE, GRADIENT_PURPLE, function(val) silentAimHeadshotRate = val end)
@@ -1014,6 +1064,7 @@ remoteMainBtn = CreateBtn(ScrollHidden, {"Bảng Chạy Code Remote", "Remote Ex
     if not s then isSpammingRemote = false; RBtnSpam.BackgroundColor3 = Color3.fromRGB(255, 59, 48); RBtnSpam.Text = "AUTO SPAM"; SendNotify("Remote", L("Đã đóng bảng Thực thi Remote", "Closed Remote Executor"), 1.5) end
 end)
 
+--- [Chú thích: Hitbox Expander - Bơm to đầu địch]
 CreateBtn(ScrollHidden, {"Mở Rộng Đầu Địch (Hitbox)", "Hitbox Expander"}, function(s)
     hitboxActive = s
     if not s then 
@@ -1026,6 +1077,7 @@ CreateBtn(ScrollHidden, {"Mở Rộng Đầu Địch (Hitbox)", "Hitbox Expander
 end)
 CreateSlider(ScrollHidden, {"Kích Cỡ Đầu Địch", "Hitbox Size"}, 1, 500, 100, COLOR_PINK, IOS_BLUE, function(val) currentHitboxSize = val end)
 
+--- [Chú thích: Xóa tường để dễ bề đi xuyên map]
 local mapCache = {}
 local deleteWallLoop = nil
 local function DoDeleteWall(v)
@@ -1051,6 +1103,7 @@ end)
 
 CreateBtn(ScrollHidden, {"🌐 Tiếng Việt / English", "🌐 English / Tiếng Việt"}, function(s) ChangeLanguage(s and "VI" or "EN") end, false)
 
+--- [Chú thích: Vòng lặp liên tục gán lại Hitbox nếu nhân vật địch reset]
 task.spawn(function()
     while task.wait(1) do
         if hitboxActive then
@@ -1068,9 +1121,7 @@ task.spawn(function()
     end
 end)
 
------------------------------------------------------------
---- [[ TÍNH NĂNG TAB ESP ]] 
------------------------------------------------------------
+--- [Chú thích: NỘI DUNG TAB ESP (Nhìn Xuyên Tường, Tên, Box)]
 CreateBtn(ScrollESP, {"ESP Đường Kẻ Tới Địch", "ESP Line"}, function(s) espLineActive = s end)
 CreateBtn(ScrollESP, {"ESP Khung Hộp", "ESP Box"}, function(s) espBoxActive = s end)
 BtnUser.MouseButton1Click:Connect(function() espNameMode = "Name"; PromptUI.Visible = false; espNameActive = true; SendNotify("ESP Name", L("Tên Gốc BẬT", "Original Name ON"), 1.2) end)
@@ -1095,10 +1146,7 @@ end)
 CreateBtn(ScrollESP, {"Đếm Số Lượng Địch", "ESP Count"}, function(s) espCountActive = s; CountPill.Visible = s end)
 CreateBtn(ScrollESP, {"Chams Nhìn Xuyên Tường", "Xray Chams"}, function(s) xrayActive = s end)
 
-
------------------------------------------------------------
---- [[ TAB NÂNG CẤP: THÔNG TIN (INFO) ]]
------------------------------------------------------------
+--- [Chú thích: NỘI DUNG TAB THÔNG TIN (INFO) - Avatar, thông số, Server]
 local ScrollInfo = tabFrames.Info.frame
 local InfoContainer = Instance.new("Frame", ScrollInfo)
 InfoContainer.Size = UDim2.new(0.92, 0, 0, 280)
@@ -1131,7 +1179,7 @@ local NameLabel = Instance.new("TextLabel", InfoContainer)
 NameLabel.Size = UDim2.new(1, -85, 0, 50); NameLabel.Position = UDim2.new(0, 75, 0, 80)
 NameLabel.BackgroundTransparency = 1; NameLabel.Text = lp.DisplayName .. "\n@" .. lp.Name; NameLabel.Font = Enum.Font.GothamBold; NameLabel.TextColor3 = IOS_BLUE; NameLabel.TextSize = 13; NameLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- Bảng chỉ số Live
+-- Bảng chỉ số Live (Thời gian thực)
 local StatsFrame = Instance.new("Frame", InfoContainer)
 StatsFrame.Size = UDim2.new(0.9, 0, 0, 130); StatsFrame.Position = UDim2.new(0.05, 0, 0, 140); StatsFrame.BackgroundTransparency = 1
 local StatsLayout = Instance.new("UIListLayout", StatsFrame); StatsLayout.Padding = UDim.new(0, 5)
@@ -1155,7 +1203,7 @@ local platEnum = uis:GetPlatform()
 local platStr = (platEnum == Enum.Platform.Android and "Android") or (platEnum == Enum.Platform.IOS and "iOS") or (platEnum == Enum.Platform.Windows and "Windows") or "PC/Other"
 statClient.Text = "💻 Client: " .. tostring(execName) .. " / " .. platStr
 
--- Cập nhật dữ liệu
+-- Cập nhật dữ liệu động
 task.spawn(function()
     statAccount.Text = "📅 Tài khoản: " .. lp.AccountAge .. " ngày tuổi"
     
@@ -1168,7 +1216,7 @@ task.spawn(function()
     end
 end)
 
--- Fetch Total Concurrent Players using HttpGet safely
+-- Fetch Total Concurrent Players qua HttpGet (Lấy số người chơi Global)
 task.spawn(function()
     local totalPlayers = "Đang tải..."
     while task.wait(5) do
@@ -1196,6 +1244,7 @@ task.spawn(function()
     end)
 end)
 
+--- [Chú thích: TÍNH NĂNG MỞ ĐÓNG (Nút Floating Mở Menu)]
 local OpenBtn = Instance.new("ImageButton", ScreenGui); OpenBtn.Size = UDim2.new(0, 50, 0, 50); OpenBtn.Position = UDim2.new(1, -65, 0.5, -27); OpenBtn.BackgroundTransparency = 1; OpenBtn.Image = ASSET_ID; OpenBtn.Visible = false; MakeDraggable(OpenBtn)
 
 local isMainMinimized = false
@@ -1208,6 +1257,7 @@ end)
 local function ToggleMenu() MainFrame.Visible = not MainFrame.Visible; OpenBtn.Visible = not MainFrame.Visible end
 CloseBtn.MouseButton1Click:Connect(ToggleMenu); OpenBtn.MouseButton1Click:Connect(ToggleMenu)
 
+--- [Chú thích: LOGIC PHÍM JUMP CHO MA VÀ NGƯỜI CHƠI (Tương thích Infinite Jump)]
 uis.JumpRequest:Connect(function()
     if (ghostActive or fakeLagActive or bypassTeleportActive) and ghostModel then 
         local gHum = ghostModel:FindFirstChild("Humanoid")
@@ -1251,6 +1301,7 @@ uis.JumpRequest:Connect(function()
     end
 end)
 
+--- [Chú thích: CHẠM MÀN HÌNH ĐỂ MỞ MENU HOẶC LƯỚT TƯỜNG (Tap Wall)]
 local activeTouches = {}
 uis.InputBegan:Connect(function(input, gpe)
     if tapWallActive and not gpe and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
@@ -1258,10 +1309,12 @@ uis.InputBegan:Connect(function(input, gpe)
         local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, params)
         if result and result.Instance then local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart"); if root then local destPos = result.Position + (ray.Direction.Unit * 8); local safeResult = workspace:Raycast(destPos + Vector3.new(0,10,0), Vector3.new(0,-30,0), params); if safeResult then root.CFrame = CFrame.new(safeResult.Position + Vector3.new(0, 3.5, 0)) else root.CFrame = CFrame.new(destPos.X, root.Position.Y, destPos.Z) end end end
     end
+    -- Chạm 3 lần mở/tắt bảng, 4 lần tắt hẳn icon
     if input.UserInputType == Enum.UserInputType.Touch then activeTouches[input] = os.clock(); task.delay(0.05, function() local count, minT, maxT = 0, math.huge, 0; for _, t in pairs(activeTouches) do count = count + 1; minT = math.min(minT, t); maxT = math.max(maxT, t) end; if (maxT - minT) <= 0.25 then if count == 3 then ToggleMenu(); activeTouches = {} elseif count == 4 then OpenBtn.Visible = not OpenBtn.Visible; activeTouches = {} end end end) end
 end)
 uis.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch then activeTouches[input] = nil end end)
 
+--- [Chú thích: HÀM LẤY DATA CHO ESP VÀ NÚT BAY (Teleport tàng hình)]
 local function getESP(p) 
     if not espCache[p] then 
         local data = {}; data.Box = Instance.new("Frame", ESPLayer); data.Box.BackgroundTransparency = 1; data.Box.Visible = false
@@ -1295,6 +1348,7 @@ local function getESP(p)
     return espCache[p] 
 end
 
+--- [Chú thích: LOGIC HOẠT ĐỘNG LIÊN TỤC TRƯỚC KHI VẼ FRAME (Noclip & Anti-void)]
 runService.Stepped:Connect(function()
     if noclipActive or localMoveDir.Magnitude > 0 or upDownActive or isFleeing then for i = 1, #charPartsCache do if charPartsCache[i] and charPartsCache[i].Parent then charPartsCache[i].CanCollide = false end end end
     local char = lp.Character; if char then local hrp = char:FindFirstChild("HumanoidRootPart"); if hrp then local pos = hrp.Position; if pos.Y < -200 or pos.Y > 100000 or math.abs(pos.X) > 20000 or math.abs(pos.Z) > 20000 then hrp.Velocity = Vector3.zero; hrp.CFrame = CFrame.new(0, 100, 0) end end end
@@ -1303,7 +1357,9 @@ end)
 local lastTick, fCount = os.clock(), 0
 local customAnimSpeedApplied = false
 
+--- [Chú thích: VÒNG LẶP CHÍNH CỦA GAME (Tính toán RenderStepped cho di chuyển, Ghost, ESP)]
 runService.RenderStepped:Connect(function(dt)
+    -- Hiển thị FPS
     local cur = os.clock()
     if fpsActive then fCount = fCount + 1; if cur - lastTick >= 1 then RegLang(FpsLabel, "Text", "FPS: " .. fCount, "FPS: " .. fCount); fCount = 0; lastTick = cur end end
     if thirdPersonActive then lp.CameraMode = Enum.CameraMode.Classic; lp.CameraMinZoomDistance = 15 end
@@ -1312,6 +1368,7 @@ runService.RenderStepped:Connect(function(dt)
     local realHum = char:FindFirstChild("Humanoid"); local target = char.HumanoidRootPart; local currentHum = realHum
     
     if currentHum then 
+        -- Logic Độn thổ
         currentHum.AutoRotate = not (spinBotActive or moonwalkActive or isFleeing)
         if upDownActive and not isFleeing then
             if upDownMode == "Up" then currentHum.CameraOffset = Vector3.zero elseif upDownMode == "Down" then currentHum.CameraOffset = Vector3.new(0, 14, 0) end
@@ -1322,6 +1379,7 @@ runService.RenderStepped:Connect(function(dt)
             if currentHum:GetState() == Enum.HumanoidStateType.Freefall then currentHum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics) end
         else currentHum.CameraOffset = Vector3.zero end
 
+        -- Cập nhật tốc độ dựa vào thông số đã hack
         if multiSpeedActive then currentHum.WalkSpeed = baseWalkSpeed * multiVal end
         if multiJumpActive then 
             if currentHum.UseJumpPower then currentHum.JumpPower = baseJumpPower * multiVal
@@ -1329,6 +1387,7 @@ runService.RenderStepped:Connect(function(dt)
         end
     end
     
+    -- Logic của Xác ma (Ghost Mode)
     if (ghostActive or fakeLagActive or bypassTeleportActive) and ghostModel and realHum then
         local ghostRoot = ghostModel:FindFirstChild("HumanoidRootPart"); local ghostHum = ghostModel:FindFirstChild("Humanoid")
         if ghostRoot and ghostHum then
@@ -1345,7 +1404,7 @@ runService.RenderStepped:Connect(function(dt)
                 end
             else moveDir = realHum.MoveDirection end
 
-            -- Xử lý Logic Animation cho Ghost
+            -- Animation của xác ma
             local isMoving = moveDir.Magnitude > 0
             local ghostState = ghostHum:GetState()
             local targetGhostSpeed = (currentWalkSpeedLevel > 1) and animSpeed or 1
@@ -1374,7 +1433,6 @@ runService.RenderStepped:Connect(function(dt)
                 end
             end
 
-            -- Áp dụng di chuyển Ghost
             if moveDir.Magnitude > 0 then
                 ghostHum:Move(moveDir, false)
                 if currentWalkSpeedLevel > 1 then local speedMultiplier = (currentWalkSpeedLevel * 25) * dt; local flatDir = Vector3.new(moveDir.X, 0, moveDir.Z); ghostRoot.CFrame = ghostRoot.CFrame + (flatDir * speedMultiplier) end
@@ -1391,14 +1449,13 @@ runService.RenderStepped:Connect(function(dt)
         
         local isMovingViaInput = currentHum.MoveDirection.Magnitude > 0
         
-        -- Logic Hoạt Ảnh & Tốc Độ cho Xác Thật
+        -- Logic điều chỉnh Animation Speed cho xác thật
         if currentWalkSpeedLevel > 1 and localMoveDir.Magnitude == 0 and isMovingViaInput then 
             local speedMultiplier = (currentWalkSpeedLevel * 25) * dt
             target.CFrame = target.CFrame + (currentHum.MoveDirection * speedMultiplier)
             for _, track in pairs(currentHum:GetPlayingAnimationTracks()) do track:AdjustSpeed(animSpeed) end 
             customAnimSpeedApplied = true
         else
-            -- Tự động trả về tốc độ hoạt ảnh 10 (1.0x) khi không dùng Speed
             if customAnimSpeedApplied then
                 for _, track in pairs(currentHum:GetPlayingAnimationTracks()) do track:AdjustSpeed(1) end 
                 customAnimSpeedApplied = false
@@ -1410,6 +1467,7 @@ runService.RenderStepped:Connect(function(dt)
     
     for _, v in pairs(target.Parent:GetDescendants()) do if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.Anchored then v.Anchored = false end end
 
+    -- Logic điều hướng phím giả lập (Move Pad)
     if not ghostActive and not fakeLagActive and not bypassTeleportActive and not isFleeing then
         local joystickDir = currentHum and currentHum.MoveDirection or Vector3.zero; local isControllerMoving = localMoveDir.Magnitude > 0; local mv = Vector3.zero
         
@@ -1448,6 +1506,7 @@ runService.RenderStepped:Connect(function(dt)
     
     if ghimActive and lockedPos and not ghostActive and not fakeLagActive and not bypassTeleportActive and not isFleeing then char.HumanoidRootPart.CFrame = lockedPos; char.HumanoidRootPart.Velocity = Vector3.zero end
 
+    --- [Chú thích: TÍNH TOÁN VÀ VẼ HÌNH ẢNH ESP LÊN MÀN HÌNH]
     local anyEsp = espLineActive or espBoxActive or espCountActive or xrayActive or espNameActive or espLongArmsActive
     local pCount = 0; local bC = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y)
     
@@ -1506,6 +1565,7 @@ runService.RenderStepped:Connect(function(dt)
     if espCountActive then RegLang(CountLabel, "Text", "Địch: " .. pCount, "Enemies: " .. pCount) end
 end)
 
+--- [Chú thích: DỌN DẸP CACHE SAU KHI CHẾT/HỒI SINH]
 lp.CharacterAdded:Connect(function(newChar)
     charTransCache = {} 
     ghostAnimTracks = {}
@@ -1518,5 +1578,5 @@ lp.CharacterAdded:Connect(function(newChar)
     if godMode2Active then task.wait(1); if newChar and newChar:FindFirstChild("Humanoid") then local oldHum = newChar:FindFirstChild("Humanoid"); local clone = oldHum:Clone(); clone.Name = "Humanoid"; clone.Parent = newChar; workspace.CurrentCamera.CameraSubject = clone; oldHum:Destroy(); local oldAnim = newChar:FindFirstChild("Animate"); if oldAnim then local newAnim = oldAnim:Clone(); oldAnim:Destroy(); newAnim.Parent = newChar end end end
 end)
 
--- Khởi tạo ngôn ngữ mặc định sau khi load xong UI
+--- [Chú thích: Khởi tạo ngôn ngữ mặc định sau khi tải xong toàn bộ UI]
 ChangeLanguage("EN")

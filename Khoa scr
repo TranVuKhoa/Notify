@@ -45,15 +45,11 @@ local function RegLang(obj, prop, vi, en)
     table.insert(updateLangEvents, function() obj[prop] = L(vi, en) end)
 end
 
---- [Chú thích: Khai báo các biến trạng thái (Bất tử, Silent Aim, Giật Lag...)]
+--- [Chú thích: Khai báo các biến trạng thái (Bất tử, Giật Lag...)]
 local godMode1Active, godMode2Active, godMode3Active, godMode4Active = false, false, false, false
-local silentAimActive = false
-local silentAimHeadshotRate = 100 
-local currentSilentAimTarget = nil 
 local godModeConn, loopHealConn, antiVoidConn, charAddedConn = nil, nil, nil, nil
 local godMode3Conn, godMode4Conn = nil, nil
 local ghostModel = nil
-local noRecoilActive = false
 
 --- [Chú thích: Khai báo biến cho tính năng MULTIPLIER TỐC ĐỘ/NHẢY]
 local multiSpeedActive = false
@@ -155,14 +151,6 @@ local function UnfreezeAll()
     frozenEntities = {}
 end
 
---- [Chú thích: LOGIC TỰ ĐỘNG CHẠY TRỐN KHI MÁU YẾU (AUTO FLEE)]
-local safeHealthActive = false
-local safeHealthPercent = 30
-local safeHealthReturnPercent = 95
-local isFleeing = false
-local preFleeCFrame = nil
-local fleePlatform = nil
-
 --- [Chú thích: Tối ưu FPS và chống AFK kick]
 local charPartsCache = {}
 local function cacheCharParts(character)
@@ -202,46 +190,6 @@ local function SendNotify(title, text, duration)
     Frame:TweenPosition(UDim2.new(1, -250, 1, -85), "Out", "Quart", 0.6, true)
     task.delay(duration or 3.5, function() if Frame then Frame:Destroy() end end)
 end
-
---- [Chú thích: Vòng lặp kiểm tra máu để kích hoạt Auto Flee]
-task.spawn(function()
-    while task.wait(0.2) do
-        if safeHealthActive and lp.Character then
-            local hum = lp.Character:FindFirstChild("Humanoid"); local hrp = lp.Character:FindFirstChild("HumanoidRootPart")
-            if hum and hrp and hum.Health > 0 then
-                local currentPct = (hum.Health / hum.MaxHealth) * 100
-                if currentPct <= safeHealthPercent and not isFleeing then
-                    isFleeing = true; preFleeCFrame = hrp.CFrame
-                    if not fleePlatform then fleePlatform = Instance.new("Part"); fleePlatform.Name = "VuKhoa_FleePlatform"; fleePlatform.Size = Vector3.new(50, 2, 50); fleePlatform.Anchored = true; fleePlatform.Transparency = 1; fleePlatform.Position = Vector3.new(hrp.Position.X, 60000, hrp.Position.Z); fleePlatform.Parent = workspace end
-                    hrp.Velocity = Vector3.zero; hrp.CFrame = fleePlatform.CFrame + Vector3.new(0, 5, 0); SendNotify(L("Máu An Toàn", "Safe Health"), L("Nguy Hiểm! Đã sơ tán.", "Danger! Evacuated."), 2.5)
-                elseif currentPct >= safeHealthReturnPercent and isFleeing then
-                    isFleeing = false; hrp.Velocity = Vector3.zero; if preFleeCFrame then hrp.CFrame = preFleeCFrame end
-                    if fleePlatform then fleePlatform:Destroy(); fleePlatform = nil end; SendNotify(L("Máu An Toàn", "Safe Health"), L("Máu đã đạt mức an toàn, quay lại!", "Health safe, returning!"), 2.5)
-                end
-            end
-        elseif not safeHealthActive and isFleeing then
-            isFleeing = false; if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then lp.Character.HumanoidRootPart.Velocity = Vector3.zero; if preFleeCFrame then lp.Character.HumanoidRootPart.CFrame = preFleeCFrame end end
-            if fleePlatform then fleePlatform:Destroy(); fleePlatform = nil end
-        end
-    end
-end)
-
---- [Chú thích: Hàm tính toán mục tiêu gần nhất cho Silent Aim]
-local function getNearestTarget()
-    local nearestDist = math.huge; local bestTarget = nil; local mPos = uis:GetMouseLocation()
-    for _, p in pairs(game.Players:GetPlayers()) do
-        if p ~= lp and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            local head = p.Character:FindFirstChild("Head"); local body = p.Character:FindFirstChild("HumanoidRootPart") or p.Character:FindFirstChild("UpperTorso")
-            local targetPart = (math.random(1, 100) <= silentAimHeadshotRate) and head or body
-            if targetPart then
-                local screenPos, onScreen = cam:WorldToViewportPoint(targetPart.Position)
-                if onScreen then local dist = (Vector2.new(screenPos.X, screenPos.Y) - mPos).Magnitude; if dist < nearestDist then nearestDist = dist; bestTarget = targetPart end end
-            end
-        end
-    end
-    return bestTarget
-end
-task.spawn(function() while task.wait(0.1) do if silentAimActive then currentSilentAimTarget = getNearestTarget() else currentSilentAimTarget = nil end end end)
 
 --- [Chú thích: HOOK METATABLE (Can thiệp vào lõi game để hack tốc độ, bypass server)]
 pcall(function()
@@ -291,29 +239,16 @@ pcall(function()
             end
             
             -- GOD MODE 2 (BẤT TỬ FRAMEWORK) - Chặn Remote Sát Thương
-            if godMode2Active and (method == "FireServer" or method == "InvokeServer") then
+             if godMode2Active and (method == "FireServer" or method == "InvokeServer") then
                 local rName = tostring(self.Name):lower()
                 if rName:match("damage") or rName:match("hit") or rName:match("hurt") or rName:match("kill") or rName:match("attack") then
                     return nil
-                end
+                 end
             end
 
             -- Chặn gửi Packet lên server khi Fake Lag đang bật
             if fakeLagActive then
                 if method == "FireServer" or method == "InvokeServer" then table.insert(fakeLagQueue, { Remote = self, Args = args, Method = method }); return nil end
-            end
-            -- Bẻ cong tia đạn cho Silent Aim
-            if silentAimActive and currentSilentAimTarget then
-                if method == "Raycast" then
-                    local origin = args[1]; local dir = args[2]
-                    if typeof(origin) == "Vector3" and typeof(dir) == "Vector3" then if dir.Magnitude > 10 and dir.Unit.Y > -0.85 then args[2] = (currentSilentAimTarget.Position - origin).Unit * dir.Magnitude; return oldNamecall(self, unpack(args)) end end
-                elseif method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRayWithWhitelist" or method == "FindPartOnRay" then
-                    local ray = args[1]
-                    if typeof(ray) == "Ray" then
-                        local origin = ray.Origin; local dir = ray.Direction
-                        if dir.Magnitude > 10 and dir.Unit.Y > -0.85 then args[1] = Ray.new(origin, (currentSilentAimTarget.Position - origin).Unit * dir.Magnitude); return oldNamecall(self, unpack(args)) end
-                    end
-                end
             end
         end
         return oldNamecall(self, unpack(args))
@@ -644,17 +579,14 @@ local GhostBtnFrame = CreateActionBtn(57, "👻", function(btn)
     else 
         ghostActive = false; 
         if ghostModel and ghostModel:FindFirstChild("HumanoidRootPart") and char and char:FindFirstChild("HumanoidRootPart") then 
-            char.HumanoidRootPart.Anchored = false; 
-            char.HumanoidRootPart.CFrame = ghostModel.HumanoidRootPart.CFrame 
+            char.HumanoidRootPart.Anchored = false; char.HumanoidRootPart.CFrame = ghostModel.HumanoidRootPart.CFrame 
         end; 
-        if ghostModel then ghostModel:Destroy(); ghostModel = nil end; 
+        if ghostModel then ghostModel:Destroy(); ghostModel = nil end;
         if char then 
-            local hum = char:FindFirstChild("Humanoid"); 
-            if hum then cam.CameraSubject = hum end 
+            local hum = char:FindFirstChild("Humanoid"); if hum then cam.CameraSubject = hum end 
         end; 
         StopGhostAnimation();
-        RestoreCharGhost(); 
-        lockedPos = nil; 
+        RestoreCharGhost(); lockedPos = nil; 
         btn.Text = "👻"; 
         SendNotify("Ghost Mode", L("Nhập xác thành công!", "Reunited with body!"), 1.5) 
     end 
@@ -861,8 +793,7 @@ local function CreateBtn(parent, textData, callback, defaultActive)
 
     local Btn = Instance.new("TextButton", parent); Btn.Size = UDim2.new(0.92, 0, 0, 34); Btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Btn.BackgroundTransparency = 0.92; Btn.Text = "" 
     Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 10)
-    local Square = Instance.new("Frame", Btn); Square.Size = UDim2.new(0, 16, 0, 16); Square.Position = UDim2.new(0, 10, 0.5, -8); Square.BorderSizePixel = 0;
-    Instance.new("UICorner", Square).CornerRadius = UDim.new(1, 0)
+    local Square = Instance.new("Frame", Btn); Square.Size = UDim2.new(0, 16, 0, 16); Square.Position = UDim2.new(0, 10, 0.5, -8); Square.BorderSizePixel = 0; Instance.new("UICorner", Square).CornerRadius = UDim.new(1, 0)
     local Label = Instance.new("TextLabel", Btn); Label.Size = UDim2.new(1, -40, 1, 0); Label.Position = UDim2.new(0, 35, 0, 0); Label.BackgroundTransparency = 1; Label.Font = Enum.Font.Gotham; Label.TextColor3 = Color3.fromRGB(240, 240, 245); Label.TextSize = 12; Label.TextXAlignment = "Left"
     RegLang(Label, "Text", viText, enText)
 
@@ -1038,14 +969,6 @@ BtnUp.MouseButton1Click:Connect(function() upDownMode = "Up"; PromptUpDown.Visib
 BtnDown.MouseButton1Click:Connect(function() upDownMode = "Down"; PromptUpDown.Visible = false; upDownActive = true; ForceYPosition(-13); SendNotify(L("Độn Thổ", "Up/Down"), L("Đã bật Độn thổ", "Move Down Enabled"), 1.2) end)
 CreateBtn(ScrollHidden, {"Độn Thổ / Bay Lên", "Up/Down Mode"}, function(s) if s then PromptUpDown.Visible = true else upDownActive = false; PromptUpDown.Visible = false; ForceYPosition(3) end end)
 
-CreateBtn(ScrollHidden, {"Tự Động Chạy Trốn Khi Yếu", "Safe Health (Auto Flee)"}, function(s) safeHealthActive = s end)
-CreateSlider(ScrollHidden, {"Máu Nguy Hiểm (Cần Chạy) %", "Danger Health (Flee) %"}, 1, 99, 30, COLOR_RED, GRADIENT_PURPLE, function(val) safeHealthPercent = val end, COLOR_BLUE)
-CreateSlider(ScrollHidden, {"Máu An Toàn (Quay Lại) %", "Safe Return Health %"}, 1, 100, 95, Color3.fromRGB(0,0,0), Color3.fromRGB(255,255,255), function(val) safeHealthReturnPercent = val end)
-
---- [Chú thích: Mod súng - Loại bỏ độ giật]
-CreateBtn(ScrollHidden, {"Súng Không Giật (No Recoil)", "No Recoil"}, function(s) noRecoilActive = s; if s then task.spawn(function() pcall(function() for _, v in pairs(getgc(true)) do if type(v) == "table" and rawget(v, "Recoil") ~= nil then rawset(v, "Recoil", 0); if rawget(v, "MaxSpread") ~= nil then rawset(v, "MaxSpread", 0) end; if rawget(v, "CameraKick") ~= nil then rawset(v, "CameraKick", 0) end end end end) end) end end)
-CreateBtn(ScrollHidden, {"Ghim Tâm Chuẩn Xác (Silent Aim)", "Silent Aim"}, function(s) silentAimActive = s end)
-CreateSlider(ScrollHidden, {"Tỉ Lệ Trúng Đầu %", "Headshot Rate %"}, 0, 100, 100, IOS_BLUE, GRADIENT_PURPLE, function(val) silentAimHeadshotRate = val end)
 CreateBtn(ScrollHidden, {"Góc Nhìn Thứ 3", "Third Person Camera"}, function(s) thirdPersonActive = s; if s then lp.CameraMode = Enum.CameraMode.Classic; lp.CameraMinZoomDistance = 15; lp.CameraMaxZoomDistance = 128 else lp.CameraMinZoomDistance = 0.5 end end)
 
 multiMainBtn = CreateBtn(ScrollHidden, {"Bảng Nhân Tốc Độ & Nhảy", "Multiplier Speed & Jump"}, function(s)
@@ -1132,7 +1055,7 @@ CreateBtn(ScrollESP, {"ESP Kéo Dài Tay", "ESP Long Arms"}, function(s)
     espLongArmsActive = s
     if not s then
         for p, arms in pairs(longArmsCache) do
-            if arms.Left then arms.Left:Destroy() end; if arms.Right then arms.Right:Destroy() end
+             if arms.Left then arms.Left:Destroy() end; if arms.Right then arms.Right:Destroy() end
             if p and p.Character then 
                 local armNames = {["Right Arm"]=true, ["Left Arm"]=true, ["RightUpperArm"]=true, ["RightLowerArm"]=true, ["RightHand"]=true, ["LeftUpperArm"]=true, ["LeftLowerArm"]=true, ["LeftHand"]=true}
                 for _, v in pairs(p.Character:GetChildren()) do 
@@ -1225,15 +1148,15 @@ task.spawn(function()
         task.spawn(function()
             pcall(function()
                 local url = "https://games.roblox.com/v1/games?universeIds=" .. game.GameId
-                local response = game:HttpGet(url)
+                 local response = game:HttpGet(url)
                 local data = game:GetService("HttpService"):JSONDecode(response)
                 if data and data.data and data.data[1] and data.data[1].playing then
                     totalPlayers = tostring(data.data[1].playing)
                 end
-            end)
+             end)
         end)
         
-        MapPlayersLabel.Text = "👥 Server: " .. serverPlayers .. "  |  🌍 Global: " .. totalPlayers
+        MapPlayersLabel.Text = "👥 Server: " .. serverPlayers .. "  | 🌍 Global: " .. totalPlayers
     end
 end)
 
@@ -1284,7 +1207,7 @@ uis.JumpRequest:Connect(function()
     
     local jp = 50
     if hum.UseJumpPower then 
-        jp = hum.JumpPower 
+         jp = hum.JumpPower 
     else 
         jp = math.sqrt(2 * workspace.Gravity * hum.JumpHeight) 
     end
@@ -1295,7 +1218,7 @@ uis.JumpRequest:Connect(function()
         hrp.Velocity = Vector3.new(hrp.Velocity.X, jp, hrp.Velocity.Z)
     else 
         if math.abs(hrp.Velocity.Y) < 1.5 or hum.FloorMaterial ~= Enum.Material.Air or hum:GetState() ~= Enum.HumanoidStateType.Freefall then 
-            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+             hum:ChangeState(Enum.HumanoidStateType.Jumping)
             hrp.Velocity = Vector3.new(hrp.Velocity.X, jp, hrp.Velocity.Z) 
         end 
     end
@@ -1317,7 +1240,7 @@ uis.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputT
 --- [Chú thích: HÀM LẤY DATA CHO ESP VÀ NÚT BAY (Teleport tàng hình)]
 local function getESP(p) 
     if not espCache[p] then 
-        local data = {}; data.Box = Instance.new("Frame", ESPLayer); data.Box.BackgroundTransparency = 1; data.Box.Visible = false
+         local data = {}; data.Box = Instance.new("Frame", ESPLayer); data.Box.BackgroundTransparency = 1; data.Box.Visible = false
         local st = Instance.new("UIStroke", data.Box); st.Color = IOS_BLUE; st.Thickness = 1.5; data.Stroke = st
         data.Line = Instance.new("Frame", ESPLayer); data.Line.BackgroundColor3 = IOS_BLUE; data.Line.BorderSizePixel = 0; data.Line.AnchorPoint = Vector2.new(0.5, 0.5); data.Line.Visible = false
         data.NameTag = Instance.new("TextLabel", data.Box); data.NameTag.Size = UDim2.new(1, 0, 0, 15); data.NameTag.Position = UDim2.new(0, 0, 0, -18); data.NameTag.BackgroundTransparency = 1; data.NameTag.TextColor3 = Color3.new(1, 1, 1); data.NameTag.TextStrokeTransparency = 0.3; data.NameTag.Font = Enum.Font.GothamMedium; data.NameTag.TextSize = 13; data.NameTag.ZIndex = 5; data.NameTag.Visible = false
@@ -1338,19 +1261,19 @@ local function getESP(p)
                     myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 3)
                     if fakeLagActive and fakeLagMode == "Stand" then
                         fakeLagStartCFrame = myHRP.CFrame
-                    end
+                     end
                 end
                 SendNotify("Teleport", L("Đã bay tới ", "Teleported to ") .. p.Name, 1.5)
             end
         end)
         espCache[p] = data 
     end 
-    return espCache[p] 
+     return espCache[p] 
 end
 
 --- [Chú thích: LOGIC HOẠT ĐỘNG LIÊN TỤC TRƯỚC KHI VẼ FRAME (Noclip & Anti-void)]
 runService.Stepped:Connect(function()
-    if noclipActive or localMoveDir.Magnitude > 0 or upDownActive or isFleeing then for i = 1, #charPartsCache do if charPartsCache[i] and charPartsCache[i].Parent then charPartsCache[i].CanCollide = false end end end
+    if noclipActive or localMoveDir.Magnitude > 0 or upDownActive then for i = 1, #charPartsCache do if charPartsCache[i] and charPartsCache[i].Parent then charPartsCache[i].CanCollide = false end end end
     local char = lp.Character; if char then local hrp = char:FindFirstChild("HumanoidRootPart"); if hrp then local pos = hrp.Position; if pos.Y < -200 or pos.Y > 100000 or math.abs(pos.X) > 20000 or math.abs(pos.Z) > 20000 then hrp.Velocity = Vector3.zero; hrp.CFrame = CFrame.new(0, 100, 0) end end end
 end)
 
@@ -1364,13 +1287,13 @@ runService.RenderStepped:Connect(function(dt)
     if fpsActive then fCount = fCount + 1; if cur - lastTick >= 1 then RegLang(FpsLabel, "Text", "FPS: " .. fCount, "FPS: " .. fCount); fCount = 0; lastTick = cur end end
     if thirdPersonActive then lp.CameraMode = Enum.CameraMode.Classic; lp.CameraMinZoomDistance = 15 end
     
-    local char = lp.Character; if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+     local char = lp.Character; if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local realHum = char:FindFirstChild("Humanoid"); local target = char.HumanoidRootPart; local currentHum = realHum
     
     if currentHum then 
         -- Logic Độn thổ
-        currentHum.AutoRotate = not (spinBotActive or moonwalkActive or isFleeing)
-        if upDownActive and not isFleeing then
+        currentHum.AutoRotate = not (spinBotActive or moonwalkActive)
+        if upDownActive then
             if upDownMode == "Up" then currentHum.CameraOffset = Vector3.zero elseif upDownMode == "Down" then currentHum.CameraOffset = Vector3.new(0, 14, 0) end
             local params = RaycastParams.new(); params.FilterDescendantsInstances = {lp.Character, ghostModel}; params.FilterType = Enum.RaycastFilterType.Exclude; params.IgnoreWater = true
             local rayStartOffset = (upDownMode == "Down") and 30 or 10; local origin = Vector3.new(target.Position.X, target.Position.Y + rayStartOffset, target.Position.Z)
@@ -1383,7 +1306,7 @@ runService.RenderStepped:Connect(function(dt)
         if multiSpeedActive then currentHum.WalkSpeed = baseWalkSpeed * multiVal end
         if multiJumpActive then 
             if currentHum.UseJumpPower then currentHum.JumpPower = baseJumpPower * multiVal
-            else currentHum.JumpHeight = baseJumpHeight * multiVal end
+             else currentHum.JumpHeight = baseJumpHeight * multiVal end
         end
     end
     
@@ -1395,11 +1318,11 @@ runService.RenderStepped:Connect(function(dt)
             if getMoveVector then
                 local mv = getMoveVector()
                 if mv.Magnitude > 0 then
-                    local fwd = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
+                     local fwd = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
                     if fwd.Magnitude > 0.001 then fwd = fwd.Unit else fwd = Vector3.new(0,0,-1) end
                     local rht = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z)
                     if rht.Magnitude > 0.001 then rht = rht.Unit else rht = Vector3.new(1,0,0) end
-                    moveDir = (fwd * -mv.Z) + (rht * mv.X)
+                     moveDir = (fwd * -mv.Z) + (rht * mv.X)
                     if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
                 end
             else moveDir = realHum.MoveDirection end
@@ -1411,17 +1334,17 @@ runService.RenderStepped:Connect(function(dt)
 
             if ghostState == Enum.HumanoidStateType.Freefall then
                 if ghostAnimTracks.Jump and ghostAnimTracks.Jump.IsPlaying then ghostAnimTracks.Jump:Stop() end
-                if ghostAnimTracks.Idle and ghostAnimTracks.Idle.IsPlaying then ghostAnimTracks.Idle:Stop() end
+                 if ghostAnimTracks.Idle and ghostAnimTracks.Idle.IsPlaying then ghostAnimTracks.Idle:Stop() end
                 if ghostAnimTracks.Walk and ghostAnimTracks.Walk.IsPlaying then ghostAnimTracks.Walk:Stop() end
                 if ghostAnimTracks.Fall and not ghostAnimTracks.Fall.IsPlaying then ghostAnimTracks.Fall:Play() end
             elseif ghostState == Enum.HumanoidStateType.Jumping then
                 if ghostAnimTracks.Idle and ghostAnimTracks.Idle.IsPlaying then ghostAnimTracks.Idle:Stop() end
-                if ghostAnimTracks.Walk and ghostAnimTracks.Walk.IsPlaying then ghostAnimTracks.Walk:Stop() end
+                  if ghostAnimTracks.Walk and ghostAnimTracks.Walk.IsPlaying then ghostAnimTracks.Walk:Stop() end
                 if ghostAnimTracks.Fall and ghostAnimTracks.Fall.IsPlaying then ghostAnimTracks.Fall:Stop() end
                 if ghostAnimTracks.Jump and not ghostAnimTracks.Jump.IsPlaying then ghostAnimTracks.Jump:Play() end
             else
                 if ghostAnimTracks.Jump and ghostAnimTracks.Jump.IsPlaying then ghostAnimTracks.Jump:Stop() end
-                if ghostAnimTracks.Fall and ghostAnimTracks.Fall.IsPlaying then ghostAnimTracks.Fall:Stop() end
+                 if ghostAnimTracks.Fall and ghostAnimTracks.Fall.IsPlaying then ghostAnimTracks.Fall:Stop() end
                 
                 if isMoving then
                     if ghostAnimTracks.Idle and ghostAnimTracks.Idle.IsPlaying then ghostAnimTracks.Idle:Stop() end
@@ -1439,22 +1362,22 @@ runService.RenderStepped:Connect(function(dt)
                 local flatDir = Vector3.new(moveDir.X, 0, moveDir.Z)
                 if flatDir.Magnitude > 0.001 then if moonwalkActive then ghostRoot.CFrame = CFrame.lookAt(ghostRoot.Position, ghostRoot.Position - flatDir) else ghostRoot.CFrame = CFrame.lookAt(ghostRoot.Position, ghostRoot.Position + flatDir) end end 
             else
-                ghostHum:Move(Vector3.zero, false); ghostRoot.Velocity = Vector3.new(0, ghostRoot.Velocity.Y, 0)
+                 ghostHum:Move(Vector3.zero, false); ghostRoot.Velocity = Vector3.new(0, ghostRoot.Velocity.Y, 0)
             end
         end
     end
     
-    if currentHum and not ghostActive and not fakeLagActive and not bypassTeleportActive and not isFleeing then
+    if currentHum and not ghostActive and not fakeLagActive and not bypassTeleportActive then
         if not multiSpeedActive and currentHum.WalkSpeed < 16 then currentHum.WalkSpeed = 16 end
         
         local isMovingViaInput = currentHum.MoveDirection.Magnitude > 0
-        
+         
         -- Logic điều chỉnh Animation Speed cho xác thật
         if currentWalkSpeedLevel > 1 and localMoveDir.Magnitude == 0 and isMovingViaInput then 
             local speedMultiplier = (currentWalkSpeedLevel * 25) * dt
             target.CFrame = target.CFrame + (currentHum.MoveDirection * speedMultiplier)
             for _, track in pairs(currentHum:GetPlayingAnimationTracks()) do track:AdjustSpeed(animSpeed) end 
-            customAnimSpeedApplied = true
+             customAnimSpeedApplied = true
         else
             if customAnimSpeedApplied then
                 for _, track in pairs(currentHum:GetPlayingAnimationTracks()) do track:AdjustSpeed(1) end 
@@ -1462,13 +1385,13 @@ runService.RenderStepped:Connect(function(dt)
             end
         end
         
-        if not multiJumpActive and currentHum.JumpPower < 50 then currentHum.JumpPower = 50 end; currentHum.Sit = false
+         if not multiJumpActive and currentHum.JumpPower < 50 then currentHum.JumpPower = 50 end; currentHum.Sit = false
     end
     
     for _, v in pairs(target.Parent:GetDescendants()) do if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.Anchored then v.Anchored = false end end
 
     -- Logic điều hướng phím giả lập (Move Pad)
-    if not ghostActive and not fakeLagActive and not bypassTeleportActive and not isFleeing then
+    if not ghostActive and not fakeLagActive and not bypassTeleportActive then
         local joystickDir = currentHum and currentHum.MoveDirection or Vector3.zero; local isControllerMoving = localMoveDir.Magnitude > 0; local mv = Vector3.zero
         
         if isControllerMoving then
@@ -1504,7 +1427,7 @@ runService.RenderStepped:Connect(function(dt)
         end
     end
     
-    if ghimActive and lockedPos and not ghostActive and not fakeLagActive and not bypassTeleportActive and not isFleeing then char.HumanoidRootPart.CFrame = lockedPos; char.HumanoidRootPart.Velocity = Vector3.zero end
+    if ghimActive and lockedPos and not ghostActive and not fakeLagActive and not bypassTeleportActive then char.HumanoidRootPart.CFrame = lockedPos; char.HumanoidRootPart.Velocity = Vector3.zero end
 
     --- [Chú thích: TÍNH TOÁN VÀ VẼ HÌNH ẢNH ESP LÊN MÀN HÌNH]
     local anyEsp = espLineActive or espBoxActive or espCountActive or xrayActive or espNameActive or espLongArmsActive
@@ -1518,7 +1441,7 @@ runService.RenderStepped:Connect(function(dt)
                 if p and p.Character then 
                     local armNames = {["Right Arm"]=true, ["Left Arm"]=true, ["RightUpperArm"]=true, ["RightLowerArm"]=true, ["RightHand"]=true, ["LeftUpperArm"]=true, ["LeftLowerArm"]=true, ["LeftHand"]=true}
                     for _, v in pairs(p.Character:GetChildren()) do 
-                        if v:IsA("BasePart") and armNames[v.Name] then pcall(function() v.Transparency = 0 end) end 
+                         if v:IsA("BasePart") and armNames[v.Name] then pcall(function() v.Transparency = 0 end) end 
                     end 
                 end
                 longArmsCache[p] = nil
@@ -1535,7 +1458,7 @@ runService.RenderStepped:Connect(function(dt)
                         
                         local armNames = {["Right Arm"]=true, ["Left Arm"]=true, ["RightUpperArm"]=true, ["RightLowerArm"]=true, ["RightHand"]=true, ["LeftUpperArm"]=true, ["LeftLowerArm"]=true, ["LeftHand"]=true}
                         for _, v in pairs(eChar:GetChildren()) do 
-                            if v:IsA("BasePart") and armNames[v.Name] then v.Transparency = 1 end 
+                             if v:IsA("BasePart") and armNames[v.Name] then v.Transparency = 1 end 
                         end
                         
                         if not longArmsCache[p].Right or not longArmsCache[p].Right.Parent then
@@ -1570,10 +1493,9 @@ lp.CharacterAdded:Connect(function(newChar)
     charTransCache = {} 
     ghostAnimTracks = {}
     cacheCharParts(newChar)
-    if isFleeing then isFleeing = false; if fleePlatform then fleePlatform:Destroy(); fleePlatform = nil end end
     if ghostActive then ghostActive = false; if ghostModel then ghostModel:Destroy(); ghostModel = nil end end
     if fakeLagActive then TurnOffFakeLag() end
-    if bypassTeleportActive then bypassTeleportActive = false; if ghostModel then ghostModel:Destroy(); ghostModel = nil end; pcall(function() BypassBtnFrame:FindFirstChildOfClass("TextButton").Text = "🛸" end) end
+     if bypassTeleportActive then bypassTeleportActive = false; if ghostModel then ghostModel:Destroy(); ghostModel = nil end; pcall(function() BypassBtnFrame:FindFirstChildOfClass("TextButton").Text = "🛸" end) end
     if setSpawnActive and savedSpawnCFrame then newChar:WaitForChild("HumanoidRootPart", 5); task.wait(0.3); if newChar:FindFirstChild("HumanoidRootPart") then newChar.HumanoidRootPart.CFrame = savedSpawnCFrame end end
     if godMode2Active then task.wait(1); if newChar and newChar:FindFirstChild("Humanoid") then local oldHum = newChar:FindFirstChild("Humanoid"); local clone = oldHum:Clone(); clone.Name = "Humanoid"; clone.Parent = newChar; workspace.CurrentCamera.CameraSubject = clone; oldHum:Destroy(); local oldAnim = newChar:FindFirstChild("Animate"); if oldAnim then local newAnim = oldAnim:Clone(); oldAnim:Destroy(); newAnim.Parent = newChar end end end
 end)

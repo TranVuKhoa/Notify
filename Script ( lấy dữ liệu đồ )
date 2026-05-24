@@ -1,0 +1,369 @@
+-- Tối ưu: Xóa GUI cũ nếu đang chạy
+if game.CoreGui:FindFirstChild("ItemSpyGold") then
+    game.CoreGui.ItemSpyGold:Destroy()
+end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local activeItem = nil
+local loggedItems = {}
+local itemToRow = {} -- Lưu trữ dòng UI của từng vật thể
+local connections = {}
+local orderIndex = 100000 -- Biến đếm ngược để item mới luôn ở trên cùng
+local BlacklistNames = {"HumanoidRootPart", "Baseplate", "SpawnLocation", "Terrain", "Part", "MeshPart"}
+
+-- ==========================================
+-- 1. KHỞI TẠO GIAO DIỆN (GUI)
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ItemSpyGold"
+ScreenGui.Parent = game.CoreGui
+ScreenGui.ResetOnSpawn = false
+
+-- Khung chính
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 500, 0, 400)
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -200)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true 
+MainFrame.Parent = ScreenGui
+
+local UICornerMain = Instance.new("UICorner")
+UICornerMain.CornerRadius = UDim.new(0, 10)
+UICornerMain.Parent = MainFrame
+
+local UIStrokeMain = Instance.new("UIStroke")
+UIStrokeMain.Color = Color3.fromRGB(220, 180, 50)
+UIStrokeMain.Thickness = 1.5
+UIStrokeMain.Parent = MainFrame
+
+-- Nút Thu nhỏ (X)
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+MinimizeBtn.Position = UDim2.new(1, -35, 0, 5)
+MinimizeBtn.BackgroundTransparency = 1
+MinimizeBtn.Text = "X"
+MinimizeBtn.TextColor3 = Color3.fromRGB(220, 180, 50)
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.TextSize = 16
+MinimizeBtn.Parent = MainFrame
+
+-- Icon Tròn Thu Nhỏ
+local CircleIcon = Instance.new("ImageButton")
+CircleIcon.Size = UDim2.new(0, 45, 0, 45) 
+CircleIcon.Position = UDim2.new(0.05, 0, 0.2, 0)
+CircleIcon.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+CircleIcon.Image = "rbxthumb://type=Asset&id=82965671854344&w=150&h=150"
+CircleIcon.Active = true
+CircleIcon.Draggable = true
+CircleIcon.Visible = false
+CircleIcon.Parent = ScreenGui
+
+local UICornerIcon = Instance.new("UICorner")
+UICornerIcon.CornerRadius = UDim.new(1, 0)
+UICornerIcon.Parent = CircleIcon
+
+local UIStrokeIcon = Instance.new("UIStroke")
+UIStrokeIcon.Color = Color3.fromRGB(220, 180, 50)
+UIStrokeIcon.Thickness = 1.5
+UIStrokeIcon.Parent = CircleIcon
+
+-- CỘT TRÁI: DANH SÁCH TÊN
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(0.35, 0, 1, -70)
+ScrollFrame.Position = UDim2.new(0, 15, 0, 20)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.ScrollBarThickness = 2
+ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(220, 180, 50)
+ScrollFrame.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder -- Sắp xếp theo thứ tự mình đặt
+UIListLayout.Padding = UDim.new(0, 10)
+UIListLayout.Parent = ScrollFrame
+
+-- Tự động điều chỉnh thanh cuộn
+UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
+end)
+
+-- ĐƯỜNG KẺ DỌC
+local VerticalLine = Instance.new("Frame")
+VerticalLine.Size = UDim2.new(0, 1.5, 1, -90)
+VerticalLine.Position = UDim2.new(0.4, 0, 0, 20)
+VerticalLine.BackgroundColor3 = Color3.fromRGB(220, 180, 50)
+VerticalLine.BorderSizePixel = 0
+VerticalLine.Parent = MainFrame
+
+-- CỘT PHẢI: XEM CODE (Fix lỗi bàn phím: Đổi từ TextBox sang TextLabel)
+local CodeViewerBox = Instance.new("TextLabel")
+CodeViewerBox.Size = UDim2.new(0.55, -10, 1, -90)
+CodeViewerBox.Position = UDim2.new(0.42, 0, 0, 20)
+CodeViewerBox.BackgroundTransparency = 1
+CodeViewerBox.TextColor3 = Color3.fromRGB(240, 240, 240)
+CodeViewerBox.TextSize = 12
+CodeViewerBox.Font = Enum.Font.Code
+CodeViewerBox.Text = "CHỌN MỘT VẬT THỂ BÊN TRÁI\nĐỂ XEM CODE..."
+CodeViewerBox.TextXAlignment = Enum.TextXAlignment.Left
+CodeViewerBox.TextYAlignment = Enum.TextYAlignment.Top
+CodeViewerBox.TextWrapped = true
+CodeViewerBox.Parent = MainFrame
+
+-- ĐƯỜNG KẺ NGANG TRÊN TOOLBAR
+local HorizontalLine = Instance.new("Frame")
+HorizontalLine.Size = UDim2.new(1, 0, 0, 1.5)
+HorizontalLine.Position = UDim2.new(0, 0, 1, -60)
+HorizontalLine.BackgroundColor3 = Color3.fromRGB(220, 180, 50)
+HorizontalLine.BorderSizePixel = 0
+HorizontalLine.Parent = MainFrame
+
+-- THANH TOOLBAR DƯỚI CÙNG
+local ToolbarPanel = Instance.new("Frame")
+ToolbarPanel.Size = UDim2.new(1, 0, 0, 60)
+ToolbarPanel.Position = UDim2.new(0, 0, 1, -60)
+ToolbarPanel.BackgroundTransparency = 1
+ToolbarPanel.Parent = MainFrame
+
+local ToolLayout = Instance.new("UIListLayout")
+ToolLayout.FillDirection = Enum.FillDirection.Horizontal
+ToolLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ToolLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ToolLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+ToolLayout.Padding = UDim.new(0, 25)
+ToolLayout.Parent = ToolbarPanel
+
+local function CreateToolButton(name, iconText)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0, 80, 0, 50)
+    Btn.BackgroundTransparency = 1
+    Btn.Text = ""
+    Btn.Parent = ToolbarPanel
+
+    local Icon = Instance.new("TextLabel")
+    Icon.Size = UDim2.new(1, 0, 0.6, 0)
+    Icon.BackgroundTransparency = 1
+    Icon.Text = iconText
+    Icon.TextColor3 = Color3.fromRGB(220, 180, 50)
+    Icon.Font = Enum.Font.GothamBold
+    Icon.TextSize = 22
+    Icon.Parent = Btn
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, 0, 0.4, 0)
+    Label.Position = UDim2.new(0, 0, 0.6, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = name
+    Label.TextColor3 = Color3.fromRGB(220, 180, 50)
+    Label.Font = Enum.Font.GothamBold
+    Label.TextSize = 11
+    Label.Parent = Btn
+    
+    if name ~= "DELETE" then
+        local Sep = Instance.new("Frame")
+        Sep.Size = UDim2.new(0, 1, 0.5, 0)
+        Sep.Position = UDim2.new(1, 12, 0.25, 0)
+        Sep.BackgroundColor3 = Color3.fromRGB(220, 180, 50)
+        Sep.BorderSizePixel = 0
+        Sep.Parent = Btn
+    end
+
+    return Btn
+end
+
+local BtnCopy = CreateToolButton("COPY", "📋")
+local BtnRun = CreateToolButton("RUN", "▶")
+local BtnCode = CreateToolButton("CODE", "</>")
+local BtnDelete = CreateToolButton("DELETE", "🗑")
+
+-- ==========================================
+-- 2. HIỆU ỨNG THU NHỎ / MỞ RỘNG
+-- ==========================================
+local function TweenUI(object, size, pos, duration)
+    TweenService:Create(object, TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = size, Position = pos}):Play()
+end
+
+MinimizeBtn.MouseButton1Click:Connect(function()
+    TweenUI(MainFrame, UDim2.new(0, 500, 0, 0), MainFrame.Position, 0.3)
+    task.wait(0.3)
+    MainFrame.Visible = false
+    CircleIcon.Visible = true
+    CircleIcon.Size = UDim2.new(0, 0, 0, 0)
+    TweenUI(CircleIcon, UDim2.new(0, 45, 0, 45), CircleIcon.Position, 0.3)
+end)
+
+CircleIcon.MouseButton1Click:Connect(function()
+    TweenUI(CircleIcon, UDim2.new(0, 0, 0, 0), CircleIcon.Position, 0.2)
+    task.wait(0.2)
+    CircleIcon.Visible = false
+    MainFrame.Visible = true
+    TweenUI(MainFrame, UDim2.new(0, 500, 0, 400), MainFrame.Position, 0.3)
+end)
+
+-- ==========================================
+-- 3. LOGIC XỬ LÝ
+-- ==========================================
+local function isBlacklisted(name)
+    for _, blocked in ipairs(BlacklistNames) do
+        if name == blocked or name:match("^Part") then return true end
+    end
+    return false
+end
+
+local function AddItemToList(instance)
+    if not instance or not instance:IsDescendantOf(game) then return end
+    if isBlacklisted(instance.Name) then return end
+
+    -- Đẩy index xuống để item mới luôn lên đầu
+    orderIndex = orderIndex - 1
+    local currentOrder = orderIndex
+
+    -- Tạo Khung chứa cho từng dòng (Gồm Tên + Nút Ghim)
+    local Row = Instance.new("Frame")
+    Row.Size = UDim2.new(1, -5, 0, 30)
+    Row.BackgroundTransparency = 1
+    Row.LayoutOrder = currentOrder
+    Row:SetAttribute("IsPinned", false)
+    Row.Parent = ScrollFrame
+    
+    itemToRow[instance] = Row -- Lưu dòng này lại
+
+    local ItemBtn = Instance.new("TextButton")
+    ItemBtn.Size = UDim2.new(1, -25, 1, 0)
+    ItemBtn.BackgroundTransparency = 1
+    ItemBtn.Text = instance.Name
+    ItemBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ItemBtn.Font = Enum.Font.GothamBold
+    ItemBtn.TextSize = 16
+    ItemBtn.TextXAlignment = Enum.TextXAlignment.Left
+    ItemBtn.Parent = Row
+
+    -- Nút Ghim
+    local PinBtn = Instance.new("TextButton")
+    PinBtn.Size = UDim2.new(0, 25, 1, 0)
+    PinBtn.Position = UDim2.new(1, -25, 0, 0)
+    PinBtn.BackgroundTransparency = 1
+    PinBtn.Text = "☆" -- Trạng thái chưa ghim
+    PinBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    PinBtn.Font = Enum.Font.GothamBold
+    PinBtn.TextSize = 18
+    PinBtn.Parent = Row
+
+    local Underline = Instance.new("Frame")
+    Underline.Size = UDim2.new(1, 0, 0, 1)
+    Underline.Position = UDim2.new(0, 0, 1, 0)
+    Underline.BackgroundColor3 = Color3.fromRGB(220, 180, 50)
+    Underline.BorderSizePixel = 0
+    Underline.Parent = Row
+
+    -- Sự kiện chọn Item
+    ItemBtn.MouseButton1Click:Connect(function()
+        activeItem = instance
+        CodeViewerBox.Text = "game." .. instance:GetFullName()
+        
+        for _, child in pairs(ScrollFrame:GetChildren()) do
+            if child:IsA("Frame") then
+                local btn = child:FindFirstChildOfClass("TextButton")
+                if btn then btn.TextColor3 = Color3.fromRGB(255, 255, 255) end
+            end
+        end
+        ItemBtn.TextColor3 = Color3.fromRGB(220, 180, 50)
+    end)
+
+    -- Sự kiện Ghim Item
+    PinBtn.MouseButton1Click:Connect(function()
+        local isPinned = not Row:GetAttribute("IsPinned")
+        Row:SetAttribute("IsPinned", isPinned)
+        
+        if isPinned then
+            PinBtn.Text = "★"
+            PinBtn.TextColor3 = Color3.fromRGB(220, 180, 50)
+            Row.LayoutOrder = currentOrder - 200000 -- Đẩy lên trên cùng (rất nhỏ)
+        else
+            PinBtn.Text = "☆"
+            PinBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+            Row.LayoutOrder = currentOrder -- Trả lại vị trí theo thứ tự lúc nhặt
+        end
+    end)
+end
+
+-- Quét xung quanh
+table.insert(connections, task.spawn(function()
+    while task.wait(1) do
+        if not rootPart then continue end
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and not loggedItems[obj] then
+                if (obj.Position - rootPart.Position).Magnitude <= 30 then
+                    if obj:FindFirstChildOfClass("ProximityPrompt") or obj:FindFirstChildOfClass("ClickDetector") or obj:FindFirstChildOfClass("TouchTransmitter") then
+                        loggedItems[obj] = true
+                        AddItemToList(obj)
+                    end
+                end
+            end
+        end
+    end
+end))
+
+-- Các chức năng Toolbar
+BtnCopy.MouseButton1Click:Connect(function()
+    if setclipboard and CodeViewerBox.Text ~= "CHỌN MỘT VẬT THỂ BÊN TRÁI\nĐỂ XEM CODE..." then
+        setclipboard(CodeViewerBox.Text)
+    end
+end)
+
+BtnRun.MouseButton1Click:Connect(function()
+    if not activeItem or not activeItem:IsDescendantOf(game) then return end
+    
+    if activeItem:IsA("ProximityPrompt") then
+        fireproximityprompt(activeItem)
+    elseif activeItem:FindFirstChildOfClass("ProximityPrompt") then
+        fireproximityprompt(activeItem:FindFirstChildOfClass("ProximityPrompt"))
+    elseif activeItem:IsA("ClickDetector") then
+        fireclickdetector(activeItem)
+    elseif activeItem:FindFirstChildOfClass("ClickDetector") then
+        fireclickdetector(activeItem:FindFirstChildOfClass("ClickDetector"))
+    elseif activeItem:IsA("BasePart") and firetouchinterest then
+        firetouchinterest(rootPart, activeItem, 0)
+        task.wait(0.05)
+        firetouchinterest(rootPart, activeItem, 1)
+    else
+        local targetCFrame = activeItem:IsA("Model") and activeItem:GetPivot() or activeItem.CFrame
+        rootPart.CFrame = targetCFrame
+    end
+end)
+
+BtnCode.MouseButton1Click:Connect(function()
+    if activeItem then
+        local path = "game." .. activeItem:GetFullName()
+        local template = "-- [ Auto Farm Template ] --\nlocal target = "..path.."\n\nif target then\n    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = target.CFrame\n    task.wait(0.2)\n    -- Tương tác\nend"
+        CodeViewerBox.Text = template
+    end
+end)
+
+-- Xóa danh sách (Không xóa các mục đã ghim)
+BtnDelete.MouseButton1Click:Connect(function()
+    for obj, row in pairs(itemToRow) do
+        if not row:GetAttribute("IsPinned") then
+            row:Destroy()
+            itemToRow[obj] = nil
+            loggedItems[obj] = nil -- Xóa khỏi bộ nhớ để sau này có thể quét lại
+            
+            -- Nếu xóa trúng mục đang xem thì reset bảng xem code
+            if activeItem == obj then
+                activeItem = nil
+                CodeViewerBox.Text = "CHỌN MỘT VẬT THỂ BÊN TRÁI\nĐỂ XEM CODE..."
+            end
+        end
+    end
+end)
+
+print("✅ Đã cập nhật tính năng: Fix Bàn Phím, Mới Nhất Lên Đầu & Ghim Vật Thể!")

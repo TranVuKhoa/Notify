@@ -1019,6 +1019,87 @@ local function DoDeleteWall(v)
         end
     end
 end
+-- ========================================================
+-- [CHỨC NĂNG THÊM]: FIX DI CHUYỂN KHỰNG & AUTO-STEP (LEO THANG)
+-- (Tích hợp chống vấp, khử ma sát, tự động lướt lên block)
+-- ========================================================
+local fixMovementActive = false
+local rsFixMovement = game:GetService("RunService")
+local lpFix = game:GetService("Players").LocalPlayer
+
+rsFixMovement.Stepped:Connect(function()
+    if fixMovementActive and lpFix.Character then
+        local hum = lpFix.Character:FindFirstChild("Humanoid")
+        local hrp = lpFix.Character:FindFirstChild("HumanoidRootPart")
+        
+        if hum and hrp then
+            -- 1. Chống ngã, tắt vấp
+            hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            
+            -- 2. Tắt va chạm của tay chân để không bị vướng mép block
+            for _, v in pairs(lpFix.Character:GetChildren()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.Name ~= "Torso" and v.Name ~= "UpperTorso" then
+                    v.CanCollide = false
+                end
+            end
+            
+            -- 3. Khử ma sát để trượt mượt mà
+            if hrp.CustomPhysicalProperties == nil or hrp.CustomPhysicalProperties.Friction > 0 then
+                hrp.CustomPhysicalProperties = PhysicalProperties.new(1, 0, 0, 1, 1)
+            end
+
+            -- 4. Auto-Step Chuẩn (Tự động quét và leo lên block)
+            -- Lấy hướng di chuyển thực tế (Bao gồm cả khi dùng BodyVelocity/Joystick ảo)
+            local vel = hrp.Velocity * Vector3.new(1, 0, 1)
+            if vel.Magnitude > 0.5 then
+                local moveDir = vel.Unit
+                local hipH = hum.HipHeight > 0 and hum.HipHeight or 2
+                
+                -- Tạo tia quét phía trước cách mũi chân 0.5 stud
+                local footY = hrp.Position.Y - (hrp.Size.Y / 2) - hipH
+                local rayOrigin = Vector3.new(hrp.Position.X, footY + 0.5, hrp.Position.Z)
+                local rayDir = moveDir * 2.5 
+                
+                local params = RaycastParams.new()
+                params.FilterDescendantsInstances = {lpFix.Character, workspace.CurrentCamera}
+                params.FilterType = Enum.RaycastFilterType.Exclude
+                
+                local hitFront = workspace:Raycast(rayOrigin, rayDir, params)
+                
+                -- Nếu đụng tường/block phía trước
+                if hitFront then
+                    -- Quét từ trên đỉnh block cắm xuống để đo mặt phẳng
+                    local upStart = hitFront.Position + Vector3.new(0, 4, 0)
+                    local hitTop = workspace:Raycast(upStart, Vector3.new(0, -5, 0), params)
+                    
+                    if hitTop then
+                        -- Tính chính xác tọa độ Y cần đứng để không lọt chân
+                        local targetY = hitTop.Position.Y + hipH + (hrp.Size.Y / 2) + 0.05
+                        local heightDiff = targetY - hrp.Position.Y
+                        
+                        -- Nếu bậc thang/block cao từ 0.1 đến 3.5 stud (Vừa tầm bước lên)
+                        if heightDiff > 0.1 and heightDiff <= 3.5 then
+                            -- Đưa nhân vật trượt thẳng lên trên (Giữ nguyên góc quay và X, Z)
+                            hrp.CFrame = CFrame.new(hrp.Position.X, targetY, hrp.Position.Z) * hrp.CFrame.Rotation
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Tạo nút Bật/Tắt tích hợp thẳng vào Tab Tính Năng Ẩn (ScrollHidden)
+CreateBtn(ScrollHidden, {"Fix Di Chuyển & Leo Thang", "Anti-Stutter & Auto-Step"}, function(state)
+    fixMovementActive = state
+    
+    -- Khôi phục vật lý gốc khi tắt
+    if not state and lpFix.Character and lpFix.Character:FindFirstChild("HumanoidRootPart") then
+        lpFix.Character.HumanoidRootPart.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5, 1, 1)
+    end
+end)
+
 CreateBtn(ScrollHidden, {"Xóa Xuyên Tường (Test)", "Delete Walls (Test)"}, function(s)
     if s then for _, v in pairs(workspace:GetDescendants()) do DoDeleteWall(v) end; deleteWallLoop = workspace.DescendantAdded:Connect(function(v) task.wait(0.1); DoDeleteWall(v) end)
     else if deleteWallLoop then deleteWallLoop:Disconnect(); deleteWallLoop = nil end; for v, props in pairs(mapCache) do pcall(function() if v and v.Parent then v.CanCollide = props.CanCollide; v.Transparency = props.Transparency end end) end; mapCache = {} end
@@ -1168,7 +1249,66 @@ task.spawn(function()
 end)
 
 --- [Chú thích: TÍNH NĂNG MỞ ĐÓNG (Nút Floating Mở Menu)]
-local OpenBtn = Instance.new("ImageButton", ScreenGui); OpenBtn.Size = UDim2.new(0, 50, 0, 50); OpenBtn.Position = UDim2.new(1, -65, 0.5, -27); OpenBtn.BackgroundTransparency = 1; OpenBtn.Image = ASSET_ID; OpenBtn.Visible = false; MakeDraggable(OpenBtn)
+--- [Chú thích: TÍNH NĂNG MỞ ĐÓNG (Nút Floating Mở Menu)]
+local OpenBtn = Instance.new("TextButton", ScreenGui)
+OpenBtn.Size = UDim2.new(0, 46, 0, 46)
+OpenBtn.Position = UDim2.new(1, -65, 0.5, -27)
+OpenBtn.BackgroundTransparency = 1
+OpenBtn.Text = ""
+OpenBtn.Visible = true -- Đã sửa thành luôn hiện để dễ bấm
+MakeDraggable(OpenBtn, OpenBtn)
+
+local RainbowDisc = Instance.new("Frame", OpenBtn)
+RainbowDisc.Size = UDim2.new(1, 0, 1, 0)
+RainbowDisc.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Instance.new("UICorner", RainbowDisc).CornerRadius = UDim.new(1, 0)
+
+local UIGradient = Instance.new("UIGradient", RainbowDisc)
+UIGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+    ColorSequenceKeypoint.new(0.2, Color3.fromRGB(255, 255, 0)),
+    ColorSequenceKeypoint.new(0.4, Color3.fromRGB(0, 255, 0)),
+    ColorSequenceKeypoint.new(0.6, Color3.fromRGB(0, 255, 255)),
+    ColorSequenceKeypoint.new(0.8, Color3.fromRGB(0, 0, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 255))
+})
+
+local InnerHole = Instance.new("Frame", OpenBtn)
+InnerHole.Size = UDim2.new(1, -6, 1, -6)
+InnerHole.Position = UDim2.new(0, 3, 0, 3)
+InnerHole.BackgroundColor3 = Color3.fromRGB(25, 25, 32) -- Trùng màu với Menu gốc
+Instance.new("UICorner", InnerHole).CornerRadius = UDim.new(1, 0)
+
+local IconCircle = Instance.new("Frame", InnerHole)
+IconCircle.Size = UDim2.new(0, 24, 0, 24)
+IconCircle.Position = UDim2.new(0.5, 0, 0.5, 2)
+IconCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+IconCircle.BackgroundTransparency = 1
+local CircleStroke = Instance.new("UIStroke", IconCircle)
+CircleStroke.Color = Color3.fromRGB(255, 255, 255)
+CircleStroke.Thickness = 2
+Instance.new("UICorner", IconCircle).CornerRadius = UDim.new(1, 0)
+
+local Mask = Instance.new("Frame", IconCircle)
+Mask.Size = UDim2.new(0, 12, 0, 10)
+Mask.Position = UDim2.new(0.5, 0, 0, -2)
+Mask.AnchorPoint = Vector2.new(0.5, 0)
+Mask.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+Mask.BorderSizePixel = 0
+
+local VerticalLine = Instance.new("Frame", IconCircle)
+VerticalLine.Size = UDim2.new(0, 2, 0, 14)
+VerticalLine.Position = UDim2.new(0.5, 0, 0, -4)
+VerticalLine.AnchorPoint = Vector2.new(0.5, 0)
+VerticalLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+VerticalLine.BorderSizePixel = 0
+
+runService.RenderStepped:Connect(function()
+    if UIGradient.Parent then
+        UIGradient.Rotation = (os.clock() * 120) % 360
+    end
+end)
+
 
 local isMainMinimized = false
 MiniBtn.MouseButton1Click:Connect(function() 
@@ -1177,7 +1317,9 @@ MiniBtn.MouseButton1Click:Connect(function()
     else TabBar.Visible = true; MainGrip.Visible = true; if TabMainBtn.TextColor3 == IOS_BLUE then ScrollMain.Visible = true elseif TabPage2Btn.TextColor3 == IOS_BLUE then ScrollPage2.Visible = true elseif TabESPBtn.TextColor3 == IOS_BLUE then ScrollESP.Visible = true elseif TabHiddenBtn.TextColor3 == IOS_BLUE then ScrollHidden.Visible = true else ScrollInfo.Visible = true end; MainFrame:TweenSize(mainExpandedSize, "Out", "Quart", 0.35, true); MiniBtn.Text = "▼" end 
 end)
 
-local function ToggleMenu() MainFrame.Visible = not MainFrame.Visible; OpenBtn.Visible = not MainFrame.Visible end
+local function ToggleMenu() 
+    MainFrame.Visible = not MainFrame.Visible 
+end
 CloseBtn.MouseButton1Click:Connect(ToggleMenu); OpenBtn.MouseButton1Click:Connect(ToggleMenu)
 
 --- [Chú thích: LOGIC PHÍM JUMP CHO MA VÀ NGƯỜI CHƠI (Tương thích Infinite Jump)]

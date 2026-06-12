@@ -1,3 +1,8 @@
+-- ==========================================
+-- GLOBAL ANNOUNCEMENT PANEL V7 (FINAL HUB EDITION V5.1)
+-- Tối ưu: Mặc định vị trí nút mở Menu tròn ở góc BÊN TRÁI - GIỮA
+-- Bố cục: Grid 2x2 + Nút Xóa sát lề phải
+-- ==========================================
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -43,7 +48,7 @@ container.BackgroundTransparency = 1
 container.Parent = screenGui
 
 -- ==========================================
--- ANIMATION UTILITIES 
+-- ANIMATION & DRAG UTILITIES
 -- ==========================================
 local function playClickAnimation(button)
     local tweenDown = TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -124,7 +129,6 @@ local function createAnnouncement(sender, message, isRainbowText, isAnonymous)
     usernameLabel.BackgroundTransparency = 1
     usernameLabel.Font = Enum.Font.GothamBold
     
-    -- XÓA TÊN, CHỈ ĐỂ LẠI TÍCH XANH NẾU ẨN DANH
     if isAnonymous then
         usernameLabel.Text = "\u{E000} :" 
     else
@@ -202,7 +206,7 @@ local function createAnnouncement(sender, message, isRainbowText, isAnonymous)
 end
 
 -- ==========================================
--- PRO DASHBOARD UI 
+-- KHUNG DASHBOARD PANEL CHÍNH
 -- ==========================================
 local dashboard = Instance.new("Frame") 
 dashboard.Name = "Dashboard"
@@ -282,9 +286,7 @@ local padding = Instance.new("UIPadding")
 padding.PaddingTop = UDim.new(0, 15)
 padding.Parent = contentArea
 
--- ==========================================
--- KHUNG NHẬP CHỮ & NÚT XÓA CHUẨN DESIGN
--- ==========================================
+-- Ô NHẬP TEXTBOX
 local textBox = Instance.new("TextBox")
 textBox.Size = UDim2.new(0.9, 0, 0, 45)
 textBox.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
@@ -312,7 +314,7 @@ textPadding.PaddingLeft = UDim.new(0, 10)
 textPadding.PaddingRight = UDim.new(0, 55)
 textPadding.Parent = textBox
 
--- NÚT XÓA BÊN PHẢI (Full Red)
+-- NÚT XÓA ĐỎ KHỐI SÁT MÉP PHẢI Ô NHẬP
 local clearBtn = Instance.new("TextButton")
 clearBtn.Name = "ClearButton"
 clearBtn.Size = UDim2.new(0, 50, 1, 0)
@@ -336,13 +338,9 @@ clearPatch.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
 clearPatch.BorderSizePixel = 0
 clearPatch.Parent = clearBtn
 
-clearBtn.MouseButton1Click:Connect(function()
-    textBox.Text = ""
-end)
+clearBtn.MouseButton1Click:Connect(function() textBox.Text = "" end)
 
--- ==========================================
--- BỐ CỤC LƯỚI 2x2 (CHO 4 NÚT)
--- ==========================================
+-- CONTAINER CHỨA LƯỚI 2X2 CHO 4 NÚT
 local gridContainer = Instance.new("Frame")
 gridContainer.Name = "GridContainer"
 gridContainer.Size = UDim2.new(0.9, 0, 0, 90)
@@ -366,9 +364,7 @@ normalButton.TextSize = 13
 normalButton.LayoutOrder = 1
 normalButton.AutoButtonColor = false
 normalButton.Parent = gridContainer
-local btnCorner1 = Instance.new("UICorner")
-btnCorner1.CornerRadius = UDim.new(0, 6)
-btnCorner1.Parent = normalButton
+Instance.new("UICorner", normalButton).CornerRadius = UDim.new(0, 6)
 
 local anonNormalButton = Instance.new("TextButton")
 anonNormalButton.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
@@ -379,9 +375,7 @@ anonNormalButton.TextSize = 13
 anonNormalButton.LayoutOrder = 2
 anonNormalButton.AutoButtonColor = false
 anonNormalButton.Parent = gridContainer
-local btnCorner2 = Instance.new("UICorner")
-btnCorner2.CornerRadius = UDim.new(0, 6)
-btnCorner2.Parent = anonNormalButton
+Instance.new("UICorner", anonNormalButton).CornerRadius = UDim.new(0, 6)
 
 local rainbowButton = Instance.new("TextButton")
 rainbowButton.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
@@ -392,15 +386,11 @@ rainbowButton.TextSize = 13
 rainbowButton.LayoutOrder = 3
 rainbowButton.AutoButtonColor = false
 rainbowButton.Parent = gridContainer
-local btnCorner3 = Instance.new("UICorner")
-btnCorner3.CornerRadius = UDim.new(0, 6)
-btnCorner3.Parent = rainbowButton
-local btnStroke3 = Instance.new("UIStroke")
+Instance.new("UICorner", rainbowButton).CornerRadius = UDim.new(0, 6)
+local btnStroke3 = Instance.new("UIStroke", rainbowButton)
 btnStroke3.Thickness = 2
-btnStroke3.Parent = rainbowButton
-local btnGradient3 = Instance.new("UIGradient")
+local btnGradient3 = Instance.new("UIGradient", btnStroke3)
 btnGradient3.Color = rainbowColorSequence
-btnGradient3.Parent = btnStroke3
 
 local anonRainbowButton = Instance.new("TextButton")
 anonRainbowButton.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
@@ -411,33 +401,25 @@ anonRainbowButton.TextSize = 13
 anonRainbowButton.LayoutOrder = 4
 anonRainbowButton.AutoButtonColor = false
 anonRainbowButton.Parent = gridContainer
-local btnCorner4 = Instance.new("UICorner")
-btnCorner4.CornerRadius = UDim.new(0, 6)
-btnCorner4.Parent = anonRainbowButton
-local btnStroke4 = Instance.new("UIStroke")
+Instance.new("UICorner", anonRainbowButton).CornerRadius = UDim.new(0, 6)
+local btnStroke4 = Instance.new("UIStroke", anonRainbowButton)
 btnStroke4.Thickness = 2
-btnStroke4.Parent = anonRainbowButton
-local btnGradient4 = Instance.new("UIGradient")
+local btnGradient4 = Instance.new("UIGradient", btnStroke4)
 btnGradient4.Color = rainbowColorSequence
-btnGradient4.Parent = btnStroke4
 
 -- ==========================================
--- NÚT TOGGLE MENU
+-- NÚT MỞ MENU TRÒN XOAY VIỀN CẦU VỒNG (ĐÃ DỜI QUA TRÁI - GIỮA MÀN HÌNH)
 -- ==========================================
 local toggleBtn = Instance.new("Frame")
 toggleBtn.Name = "ToggleMenu"
 toggleBtn.Size = UDim2.new(0, 54, 0, 54)
-toggleBtn.Position = UDim2.new(1, -70, 0.4, 0)
+-- Tọa độ mới: X sát bên trái (offset 20), Y chính giữa (scale 0.5, offset -27 để cân bằng tâm)
+toggleBtn.Position = UDim2.new(0, 20, 0.5, -27)
 toggleBtn.BackgroundColor3 = Color3.new(1, 1, 1)
 toggleBtn.Parent = screenGui
-
-local toggleCorner = Instance.new("UICorner")
-toggleCorner.CornerRadius = UDim.new(1, 0)
-toggleCorner.Parent = toggleBtn
-
-local toggleGradient = Instance.new("UIGradient")
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
+local toggleGradient = Instance.new("UIGradient", toggleBtn)
 toggleGradient.Color = rainbowColorSequence
-toggleGradient.Parent = toggleBtn
 
 local innerToggle = Instance.new("TextButton")
 innerToggle.Size = UDim2.new(1, -6, 1, -6)
@@ -446,10 +428,7 @@ innerToggle.AnchorPoint = Vector2.new(0.5, 0.5)
 innerToggle.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
 innerToggle.Text = ""
 innerToggle.Parent = toggleBtn
-
-local innerToggleCorner = Instance.new("UICorner")
-innerToggleCorner.CornerRadius = UDim.new(1, 0)
-innerToggleCorner.Parent = innerToggle
+Instance.new("UICorner", innerToggle).CornerRadius = UDim.new(1, 0)
 
 local toggleIcon = Instance.new("ImageLabel")
 toggleIcon.Size = UDim2.new(0.5, 0, 0.5, 0)
@@ -474,16 +453,11 @@ innerToggle.InputEnded:Connect(function(input)
         if distance < 10 then 
             isMenuOpen = not isMenuOpen
             playClickAnimation(toggleBtn)
-            
             if isMenuOpen then
                 dashboard.Visible = true
-                TweenService:Create(dashboard, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(0, 360, 0, 210) 
-                }):Play()
+                TweenService:Create(dashboard, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 360, 0, 210)}):Play()
             else
-                local closeTween = TweenService:Create(dashboard, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-                    Size = UDim2.new(0, 0, 0, 0)
-                })
+                local closeTween = TweenService:Create(dashboard, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)})
                 closeTween:Play()
                 closeTween.Completed:Wait() 
                 if not isMenuOpen then dashboard.Visible = false end 
@@ -494,59 +468,33 @@ end)
 
 makeDraggable(innerToggle, toggleBtn)
 
--- ==========================================
--- ANIMATION RUNSERVICE CHO CÁC VIỀN
--- ==========================================
+-- Vòng lặp xoay màu Gradient
 local connection1, connection2, connection3
-
 connection1 = RunService.RenderStepped:Connect(function(dt)
     if not btnGradient3.Parent then connection1:Disconnect() return end
     btnGradient3.Rotation = (btnGradient3.Rotation + dt * 100) % 360
 end)
-
 connection2 = RunService.RenderStepped:Connect(function(dt)
     if not toggleGradient.Parent then connection2:Disconnect() return end
     toggleGradient.Rotation = (toggleGradient.Rotation + dt * 150) % 360
 end)
-
 connection3 = RunService.RenderStepped:Connect(function(dt)
     if not btnGradient4.Parent then connection3:Disconnect() return end
     btnGradient4.Rotation = (btnGradient4.Rotation + dt * 100) % 360
 end)
 
--- ==========================================
--- SỰ KIỆN NÚT BẤM CHÍNH
--- ==========================================
+-- Hiệu ứng Hover nút
 local function setupButtonEffects(btn, originalColor)
-    btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.new(originalColor.R*1.2, originalColor.G*1.2, originalColor.B*1.2)}):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = originalColor}):Play()
-    end)
+    btn.MouseEnter:Connect(function() TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.new(originalColor.R*1.2, originalColor.G*1.2, originalColor.B*1.2)}):Play() end)
+    btn.MouseLeave:Connect(function() TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = originalColor}):Play() end)
 end
-
 setupButtonEffects(normalButton, normalButton.BackgroundColor3)
 setupButtonEffects(rainbowButton, rainbowButton.BackgroundColor3)
 setupButtonEffects(anonNormalButton, anonNormalButton.BackgroundColor3)
 setupButtonEffects(anonRainbowButton, anonRainbowButton.BackgroundColor3)
 
-normalButton.MouseButton1Click:Connect(function()
-    playClickAnimation(normalButton)
-    if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, false, false) end
-end)
-
-rainbowButton.MouseButton1Click:Connect(function()
-    playClickAnimation(rainbowButton)
-    if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, true, false) end
-end)
-
-anonNormalButton.MouseButton1Click:Connect(function()
-    playClickAnimation(anonNormalButton)
-    if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, false, true) end
-end)
-
-anonRainbowButton.MouseButton1Click:Connect(function()
-    playClickAnimation(anonRainbowButton)
-    if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, true, true) end
-end)
+-- Sự kiện click các nút chức năng
+normalButton.MouseButton1Click:Connect(function() playClickAnimation(normalButton) if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, false, false) end end)
+rainbowButton.MouseButton1Click:Connect(function() playClickAnimation(rainbowButton) if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, true, false) end end)
+anonNormalButton.MouseButton1Click:Connect(function() playClickAnimation(anonNormalButton) if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, false, true) end end)
+anonRainbowButton.MouseButton1Click:Connect(function() playClickAnimation(anonRainbowButton) if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, true, true) end end)

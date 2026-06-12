@@ -1,0 +1,552 @@
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+
+local GUI_NAME = "SystemAnnouncer_DeltaV7"
+
+-- ==========================================
+-- HỆ THỐNG ANTI-OVERLAP (TẮT MENU NẾU CHẠY LẦN 2)
+-- ==========================================
+local existingGui = player:WaitForChild("PlayerGui"):FindFirstChild(GUI_NAME)
+if existingGui then
+    existingGui:Destroy()
+    warn("Đã tắt hoàn toàn Announcement Panel!")
+    return 
+end
+
+local verifiedIcon = " \u{E000}" 
+
+local rainbowColorSequence = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 50)),
+    ColorSequenceKeypoint.new(0.16, Color3.fromRGB(255, 127, 0)),
+    ColorSequenceKeypoint.new(0.33, Color3.fromRGB(255, 200, 0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 100)),
+    ColorSequenceKeypoint.new(0.66, Color3.fromRGB(0, 150, 255)),
+    ColorSequenceKeypoint.new(0.83, Color3.fromRGB(150, 0, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 50))
+})
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = GUI_NAME
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local container = Instance.new("Frame")
+container.Name = "MessageContainer"
+container.Size = UDim2.new(1, 0, 0, 0)
+container.Position = UDim2.new(0, 0, 0, 80)
+container.BackgroundTransparency = 1
+container.Parent = screenGui
+
+-- ==========================================
+-- ANIMATION UTILITIES 
+-- ==========================================
+local function playClickAnimation(button)
+    local tweenDown = TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset - 4, button.Size.Y.Scale, button.Size.Y.Offset - 4)
+    })
+    local tweenUp = TweenService:Create(button, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = button.Size
+    })
+    tweenDown:Play()
+    tweenDown.Completed:Wait()
+    tweenUp:Play()
+end
+
+local function makeDraggable(dragArea, targetFrame)
+    local dragging = false
+    local dragInput, mousePos, framePos
+
+    dragArea.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            mousePos = input.Position
+            framePos = targetFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    dragArea.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - mousePos
+            TweenService:Create(targetFrame, TweenInfo.new(0.08, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+                Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
+            }):Play()
+        end
+    end)
+end
+
+-- ==========================================
+-- HÀM TẠO THÔNG BÁO TRÊN MÀN HÌNH
+-- ==========================================
+local function createAnnouncement(sender, message, isRainbowText, isAnonymous)
+    if not message or message == "" then return end
+    
+    local nameToShow = ""
+    if not isAnonymous then
+        nameToShow = (sender.DisplayName and sender.DisplayName ~= "" and sender.DisplayName ~= sender.Name) and sender.DisplayName or sender.Name
+    end
+    
+    local frame = Instance.new("Frame")
+    frame.BackgroundTransparency = 1
+    frame.Size = UDim2.new(0, 0, 0, 45)
+    frame.Position = UDim2.new(0.5, 0, 0, 0)
+    frame.AnchorPoint = Vector2.new(0.5, 0)
+    frame.Parent = container
+    
+    local profilePic = Instance.new("ImageLabel")
+    profilePic.Size = UDim2.new(0, 36, 0, 36)
+    profilePic.BackgroundTransparency = 1
+    profilePic.Position = UDim2.new(0, 0, 0.5, -18)
+    profilePic.Parent = frame
+
+    local textStartX = 46
+
+    if isAnonymous then
+        profilePic.Visible = false
+        textStartX = 10 
+    else
+        profilePic.Visible = true
+        profilePic.Image = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png", sender.UserId)
+    end
+    
+    local usernameLabel = Instance.new("TextLabel")
+    usernameLabel.BackgroundTransparency = 1
+    usernameLabel.Font = Enum.Font.GothamBold
+    
+    -- XÓA TÊN, CHỈ ĐỂ LẠI TÍCH XANH NẾU ẨN DANH
+    if isAnonymous then
+        usernameLabel.Text = "\u{E000} :" 
+    else
+        usernameLabel.Text = nameToShow .. verifiedIcon .. " :"
+    end
+    
+    usernameLabel.TextColor3 = isAnonymous and Color3.fromRGB(180, 180, 180) or Color3.fromRGB(0, 255, 150)
+    usernameLabel.TextStrokeTransparency = 0.2
+    usernameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    usernameLabel.TextSize = 22
+    usernameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    usernameLabel.Size = UDim2.new(0, 0, 1, 0)
+    usernameLabel.Position = UDim2.new(0, textStartX, 0, 0)
+    usernameLabel.Parent = frame
+    
+    task.wait(0.01)
+    
+    local maxWidth = 450
+    local messageWidth = #message * 10
+    local totalTextWidth = usernameLabel.TextBounds.X + messageWidth
+    local scale = (totalTextWidth + textStartX > maxWidth) and (maxWidth / (totalTextWidth + textStartX)) or 1
+  
+    local messageLabel = Instance.new("TextLabel")
+    messageLabel.BackgroundTransparency = 1
+    messageLabel.Font = Enum.Font.GothamBold
+    messageLabel.Text = " " .. message
+    messageLabel.TextStrokeTransparency = 0.2
+    messageLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    messageLabel.TextSize = 22 * scale
+    messageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    messageLabel.Size = UDim2.new(0, math.clamp(messageWidth * scale, 0, maxWidth - textStartX - usernameLabel.TextBounds.X - 10), 1, 0)
+    messageLabel.Position = UDim2.new(0, textStartX + usernameLabel.TextBounds.X + 5, 0, 0)
+    messageLabel.Parent = frame
+
+    if isRainbowText then
+        messageLabel.TextColor3 = Color3.new(1, 1, 1) 
+        local textGradient = Instance.new("UIGradient")
+        textGradient.Color = rainbowColorSequence
+        textGradient.Parent = messageLabel
+        
+        task.spawn(function()
+            local rot = 0
+            while messageLabel and messageLabel.Parent do
+                rot = (rot + 3) % 360
+                textGradient.Rotation = rot
+                task.wait(0.02)
+            end
+        end)
+    else
+        messageLabel.TextColor3 = Color3.new(1, 1, 1)
+    end
+    
+    local messageStroke = Instance.new("UIStroke")
+    messageStroke.Thickness = 2
+    messageStroke.Color = Color3.new(0, 0, 0)
+    messageStroke.Parent = messageLabel
+    
+    for _, msg in ipairs(container:GetChildren()) do
+        if msg:IsA("Frame") and msg ~= frame then
+            TweenService:Create(msg, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Position = msg.Position + UDim2.new(0, 0, 0, 50)}):Play()
+        end
+    end
+    
+    local finalWidth = math.clamp(textStartX + usernameLabel.TextBounds.X + messageLabel.TextBounds.X + 15, 150, maxWidth)
+    frame.Size = UDim2.new(0, 0, 0, 45)
+    frame:TweenSize(UDim2.new(0, finalWidth, 0, 45), "Out", "Back", 0.3, true)
+    
+    task.delay(12, function()
+        if frame and frame.Parent then
+            frame:TweenSize(UDim2.new(0, 0, 0, 45), "In", "Quad", 0.3, true)
+            task.wait(0.3)
+            frame:Destroy()
+        end
+    end)
+end
+
+-- ==========================================
+-- PRO DASHBOARD UI 
+-- ==========================================
+local dashboard = Instance.new("Frame") 
+dashboard.Name = "Dashboard"
+dashboard.Size = UDim2.new(0, 0, 0, 0) 
+dashboard.Position = UDim2.new(0.5, 0, 0.5, 0)
+dashboard.AnchorPoint = Vector2.new(0.5, 0.5)
+dashboard.BackgroundColor3 = Color3.fromRGB(18, 18, 22) 
+dashboard.ClipsDescendants = true 
+dashboard.Visible = false
+dashboard.Parent = screenGui
+
+local dashCorner = Instance.new("UICorner")
+dashCorner.CornerRadius = UDim.new(0, 10)
+dashCorner.Parent = dashboard
+
+local dashStroke = Instance.new("UIStroke")
+dashStroke.Thickness = 1
+dashStroke.Color = Color3.fromRGB(60, 60, 70)
+dashStroke.Parent = dashboard
+
+local contentHolder = Instance.new("Frame")
+contentHolder.Size = UDim2.new(0, 360, 0, 210) 
+contentHolder.Position = UDim2.new(0.5, 0, 0.5, 0)
+contentHolder.AnchorPoint = Vector2.new(0.5, 0.5)
+contentHolder.BackgroundTransparency = 1
+contentHolder.Parent = dashboard
+
+local topBar = Instance.new("Frame")
+topBar.Size = UDim2.new(1, 0, 0, 40)
+topBar.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+topBar.BorderSizePixel = 0
+topBar.Parent = contentHolder
+
+local topCorner = Instance.new("UICorner")
+topCorner.CornerRadius = UDim.new(0, 10)
+topCorner.Parent = topBar
+
+local topPatch = Instance.new("Frame")
+topPatch.Size = UDim2.new(1, 0, 0, 10)
+topPatch.Position = UDim2.new(0, 0, 1, -10)
+topPatch.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+topPatch.BorderSizePixel = 0
+topPatch.Parent = topBar
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 1, 0)
+title.BackgroundTransparency = 1
+title.Text = "  ⚡ SYSTEM ANNOUNCER"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 13
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = topBar
+
+makeDraggable(topBar, dashboard)
+
+local divider = Instance.new("Frame")
+divider.Size = UDim2.new(1, 0, 0, 1)
+divider.Position = UDim2.new(0, 0, 1, 0)
+divider.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+divider.BorderSizePixel = 0
+divider.Parent = topBar
+
+local contentArea = Instance.new("Frame")
+contentArea.Size = UDim2.new(1, 0, 1, -40)
+contentArea.Position = UDim2.new(0, 0, 0, 40)
+contentArea.BackgroundTransparency = 1
+contentArea.Parent = contentHolder
+
+local uiList = Instance.new("UIListLayout")
+uiList.SortOrder = Enum.SortOrder.LayoutOrder
+uiList.Padding = UDim.new(0, 15)
+uiList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+uiList.Parent = contentArea
+
+local padding = Instance.new("UIPadding")
+padding.PaddingTop = UDim.new(0, 15)
+padding.Parent = contentArea
+
+-- ==========================================
+-- KHUNG NHẬP CHỮ & NÚT XÓA CHUẨN DESIGN
+-- ==========================================
+local textBox = Instance.new("TextBox")
+textBox.Size = UDim2.new(0.9, 0, 0, 45)
+textBox.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+textBox.Text = ""
+textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+textBox.PlaceholderText = "Nhập thông báo tại đây..."
+textBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 160)
+textBox.TextSize = 13
+textBox.Font = Enum.Font.Gotham
+textBox.ClearTextOnFocus = false 
+textBox.LayoutOrder = 1
+textBox.Parent = contentArea
+
+local boxCorner = Instance.new("UICorner")
+boxCorner.CornerRadius = UDim.new(0, 6)
+boxCorner.Parent = textBox
+
+local boxStroke = Instance.new("UIStroke")
+boxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+boxStroke.Color = Color3.fromRGB(70, 70, 85)
+boxStroke.Parent = textBox
+
+local textPadding = Instance.new("UIPadding")
+textPadding.PaddingLeft = UDim.new(0, 10)
+textPadding.PaddingRight = UDim.new(0, 55)
+textPadding.Parent = textBox
+
+-- NÚT XÓA BÊN PHẢI (Full Red)
+local clearBtn = Instance.new("TextButton")
+clearBtn.Name = "ClearButton"
+clearBtn.Size = UDim2.new(0, 50, 1, 0)
+clearBtn.Position = UDim2.new(1, 0, 0, 0)
+clearBtn.AnchorPoint = Vector2.new(1, 0)
+clearBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50) 
+clearBtn.Text = "XÓA" 
+clearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+clearBtn.TextSize = 14
+clearBtn.Font = Enum.Font.GothamBold
+clearBtn.Parent = textBox
+
+local clearCorner = Instance.new("UICorner")
+clearCorner.CornerRadius = UDim.new(0, 6)
+clearCorner.Parent = clearBtn
+
+local clearPatch = Instance.new("Frame")
+clearPatch.Size = UDim2.new(0, 6, 1, 0)
+clearPatch.Position = UDim2.new(0, 0, 0, 0)
+clearPatch.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+clearPatch.BorderSizePixel = 0
+clearPatch.Parent = clearBtn
+
+clearBtn.MouseButton1Click:Connect(function()
+    textBox.Text = ""
+end)
+
+-- ==========================================
+-- BỐ CỤC LƯỚI 2x2 (CHO 4 NÚT)
+-- ==========================================
+local gridContainer = Instance.new("Frame")
+gridContainer.Name = "GridContainer"
+gridContainer.Size = UDim2.new(0.9, 0, 0, 90)
+gridContainer.BackgroundTransparency = 1
+gridContainer.LayoutOrder = 2
+gridContainer.Parent = contentArea
+
+local gridLayout = Instance.new("UIGridLayout")
+gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+gridLayout.CellSize = UDim2.new(0.48, 0, 0, 40)
+gridLayout.CellPadding = UDim2.new(0.04, 0, 0, 10)
+gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+gridLayout.Parent = gridContainer
+
+local normalButton = Instance.new("TextButton")
+normalButton.BackgroundColor3 = Color3.fromRGB(50, 100, 255)
+normalButton.Text = "CHỮ TRẮNG"
+normalButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+normalButton.Font = Enum.Font.GothamBold
+normalButton.TextSize = 13
+normalButton.LayoutOrder = 1
+normalButton.AutoButtonColor = false
+normalButton.Parent = gridContainer
+local btnCorner1 = Instance.new("UICorner")
+btnCorner1.CornerRadius = UDim.new(0, 6)
+btnCorner1.Parent = normalButton
+
+local anonNormalButton = Instance.new("TextButton")
+anonNormalButton.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+anonNormalButton.Text = "GỬI ẨN DANH"
+anonNormalButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+anonNormalButton.Font = Enum.Font.GothamBold
+anonNormalButton.TextSize = 13
+anonNormalButton.LayoutOrder = 2
+anonNormalButton.AutoButtonColor = false
+anonNormalButton.Parent = gridContainer
+local btnCorner2 = Instance.new("UICorner")
+btnCorner2.CornerRadius = UDim.new(0, 6)
+btnCorner2.Parent = anonNormalButton
+
+local rainbowButton = Instance.new("TextButton")
+rainbowButton.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+rainbowButton.Text = "CHỮ RAINBOW"
+rainbowButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+rainbowButton.Font = Enum.Font.GothamBold
+rainbowButton.TextSize = 13
+rainbowButton.LayoutOrder = 3
+rainbowButton.AutoButtonColor = false
+rainbowButton.Parent = gridContainer
+local btnCorner3 = Instance.new("UICorner")
+btnCorner3.CornerRadius = UDim.new(0, 6)
+btnCorner3.Parent = rainbowButton
+local btnStroke3 = Instance.new("UIStroke")
+btnStroke3.Thickness = 2
+btnStroke3.Parent = rainbowButton
+local btnGradient3 = Instance.new("UIGradient")
+btnGradient3.Color = rainbowColorSequence
+btnGradient3.Parent = btnStroke3
+
+local anonRainbowButton = Instance.new("TextButton")
+anonRainbowButton.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+anonRainbowButton.Text = "ẨN DANH 7 MÀU"
+anonRainbowButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+anonRainbowButton.Font = Enum.Font.GothamBold
+anonRainbowButton.TextSize = 13
+anonRainbowButton.LayoutOrder = 4
+anonRainbowButton.AutoButtonColor = false
+anonRainbowButton.Parent = gridContainer
+local btnCorner4 = Instance.new("UICorner")
+btnCorner4.CornerRadius = UDim.new(0, 6)
+btnCorner4.Parent = anonRainbowButton
+local btnStroke4 = Instance.new("UIStroke")
+btnStroke4.Thickness = 2
+btnStroke4.Parent = anonRainbowButton
+local btnGradient4 = Instance.new("UIGradient")
+btnGradient4.Color = rainbowColorSequence
+btnGradient4.Parent = btnStroke4
+
+-- ==========================================
+-- NÚT TOGGLE MENU
+-- ==========================================
+local toggleBtn = Instance.new("Frame")
+toggleBtn.Name = "ToggleMenu"
+toggleBtn.Size = UDim2.new(0, 54, 0, 54)
+toggleBtn.Position = UDim2.new(1, -70, 0.4, 0)
+toggleBtn.BackgroundColor3 = Color3.new(1, 1, 1)
+toggleBtn.Parent = screenGui
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(1, 0)
+toggleCorner.Parent = toggleBtn
+
+local toggleGradient = Instance.new("UIGradient")
+toggleGradient.Color = rainbowColorSequence
+toggleGradient.Parent = toggleBtn
+
+local innerToggle = Instance.new("TextButton")
+innerToggle.Size = UDim2.new(1, -6, 1, -6)
+innerToggle.Position = UDim2.new(0.5, 0, 0.5, 0)
+innerToggle.AnchorPoint = Vector2.new(0.5, 0.5)
+innerToggle.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+innerToggle.Text = ""
+innerToggle.Parent = toggleBtn
+
+local innerToggleCorner = Instance.new("UICorner")
+innerToggleCorner.CornerRadius = UDim.new(1, 0)
+innerToggleCorner.Parent = innerToggle
+
+local toggleIcon = Instance.new("ImageLabel")
+toggleIcon.Size = UDim2.new(0.5, 0, 0.5, 0)
+toggleIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+toggleIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+toggleIcon.BackgroundTransparency = 1
+toggleIcon.Image = "rbxassetid://14895320963"
+toggleIcon.Parent = innerToggle
+
+local touchStartPos
+local isMenuOpen = false
+
+innerToggle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        touchStartPos = input.Position
+    end
+end)
+
+innerToggle.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local distance = (input.Position - touchStartPos).Magnitude
+        if distance < 10 then 
+            isMenuOpen = not isMenuOpen
+            playClickAnimation(toggleBtn)
+            
+            if isMenuOpen then
+                dashboard.Visible = true
+                TweenService:Create(dashboard, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(0, 360, 0, 210) 
+                }):Play()
+            else
+                local closeTween = TweenService:Create(dashboard, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+                    Size = UDim2.new(0, 0, 0, 0)
+                })
+                closeTween:Play()
+                closeTween.Completed:Wait() 
+                if not isMenuOpen then dashboard.Visible = false end 
+            end
+        end
+    end
+end)
+
+makeDraggable(innerToggle, toggleBtn)
+
+-- ==========================================
+-- ANIMATION RUNSERVICE CHO CÁC VIỀN
+-- ==========================================
+local connection1, connection2, connection3
+
+connection1 = RunService.RenderStepped:Connect(function(dt)
+    if not btnGradient3.Parent then connection1:Disconnect() return end
+    btnGradient3.Rotation = (btnGradient3.Rotation + dt * 100) % 360
+end)
+
+connection2 = RunService.RenderStepped:Connect(function(dt)
+    if not toggleGradient.Parent then connection2:Disconnect() return end
+    toggleGradient.Rotation = (toggleGradient.Rotation + dt * 150) % 360
+end)
+
+connection3 = RunService.RenderStepped:Connect(function(dt)
+    if not btnGradient4.Parent then connection3:Disconnect() return end
+    btnGradient4.Rotation = (btnGradient4.Rotation + dt * 100) % 360
+end)
+
+-- ==========================================
+-- SỰ KIỆN NÚT BẤM CHÍNH
+-- ==========================================
+local function setupButtonEffects(btn, originalColor)
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.new(originalColor.R*1.2, originalColor.G*1.2, originalColor.B*1.2)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = originalColor}):Play()
+    end)
+end
+
+setupButtonEffects(normalButton, normalButton.BackgroundColor3)
+setupButtonEffects(rainbowButton, rainbowButton.BackgroundColor3)
+setupButtonEffects(anonNormalButton, anonNormalButton.BackgroundColor3)
+setupButtonEffects(anonRainbowButton, anonRainbowButton.BackgroundColor3)
+
+normalButton.MouseButton1Click:Connect(function()
+    playClickAnimation(normalButton)
+    if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, false, false) end
+end)
+
+rainbowButton.MouseButton1Click:Connect(function()
+    playClickAnimation(rainbowButton)
+    if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, true, false) end
+end)
+
+anonNormalButton.MouseButton1Click:Connect(function()
+    playClickAnimation(anonNormalButton)
+    if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, false, true) end
+end)
+
+anonRainbowButton.MouseButton1Click:Connect(function()
+    playClickAnimation(anonRainbowButton)
+    if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, true, true) end
+end)

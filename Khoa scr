@@ -451,6 +451,55 @@ end)
 --- [Chú thích: BẢNG MENU ĐIỀU KHIỂN CHÍNH (MAIN UI FRAME)]
 local MainFrame = Instance.new("Frame", ScreenGui); MainFrame.Size = UDim2.new(0, 240, 0, 480); MainFrame.Position = UDim2.new(0.5, -120, 0.4, 0); MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 32); MainFrame.BackgroundTransparency = 0.35; MainFrame.Active = true; MainFrame.ClipsDescendants = true; MainFrame.BorderSizePixel = 0
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 18); ApplyIOSGlassEdge(MainFrame)
+-- ========================================================
+-- VIỀN NEON PHÁT SÁNG BẢN CHUẨN (FIX DELAY/LAG KHI KÉO)
+-- ========================================================
+local glowLayers = {}
+-- Tạo 3 lớp viền
+for i = 1, 3 do
+    local glowLayer = Instance.new("Frame", ScreenGui)
+    glowLayer.BackgroundTransparency = 1
+    glowLayer.ZIndex = 0 
+    
+    local corner = Instance.new("UICorner", glowLayer)
+    corner.CornerRadius = UDim.new(0, 18) 
+    
+    local stroke = Instance.new("UIStroke", glowLayer)
+    stroke.Color = Color3.fromRGB(0, 170, 255) 
+    stroke.Thickness = 1 + (i * 3) 
+    stroke.Transparency = 0.4 + (i * 0.15) 
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    
+    table.insert(glowLayers, glowLayer)
+end
+
+-- Hàm đồng bộ tức thì
+local function syncGlow()
+    for _, layer in ipairs(glowLayers) do
+        layer.Visible = MainFrame.Visible
+        layer.Position = MainFrame.Position
+        layer.Size = MainFrame.Size
+    end
+end
+
+-- Bắt sự kiện chuyển động trực tiếp (Không dùng vòng lặp nữa)
+MainFrame:GetPropertyChangedSignal("Position"):Connect(syncGlow)
+MainFrame:GetPropertyChangedSignal("Size"):Connect(syncGlow)
+MainFrame:GetPropertyChangedSignal("Visible"):Connect(syncGlow)
+
+syncGlow() -- Chạy lần đầu để ôm khít
+
+
+runService.RenderStepped:Connect(function()
+    if MainFrame and MainFrame.Visible then
+        Glow.Visible = true
+        Glow.Position = UDim2.new(MainFrame.Position.X.Scale, MainFrame.Position.X.Offset - 15, MainFrame.Position.Y.Scale, MainFrame.Position.Y.Offset - 15)
+        Glow.Size = UDim2.new(MainFrame.Size.X.Scale, MainFrame.Size.X.Offset + 30, MainFrame.Size.Y.Scale, MainFrame.Size.Y.Offset + 30)
+    else
+        Glow.Visible = false
+    end
+end)
+
 local mainExpandedSize = UDim2.new(0, 240, 0, 480); local MainGrip = MakeResizable(MainFrame, Vector2.new(200, 200), Vector2.new(600, 800), function(s) mainExpandedSize = s end)
 TitleBar = Instance.new("Frame", MainFrame); TitleBar.Size = UDim2.new(1, 0, 0, 40); TitleBar.BackgroundTransparency = 1; TitleBar.BorderSizePixel = 0
 MiniBtn = Instance.new("TextButton", TitleBar); MiniBtn.Size = UDim2.new(0, 30, 0, 30); MiniBtn.Position = UDim2.new(0, 5, 0.5, -15); MiniBtn.Text = "▼"; MiniBtn.TextColor3 = IOS_BLUE; MiniBtn.BackgroundTransparency = 1; MiniBtn.Font = Enum.Font.GothamMedium; MiniBtn.TextSize = 16
@@ -786,22 +835,52 @@ BtnFLMove.MouseButton1Click:Connect(function()
 end)
 
 --- [Chú thích: Hàm sinh Button (Nút gạt bật tắt)]
+local TweenService = game:GetService("TweenService")
 local function CreateBtn(parent, textData, callback, defaultActive)
     local isTranslating = type(textData) == "table"
     local viText = isTranslating and textData[1] or textData
     local enText = isTranslating and textData[2] or textData
 
-    local Btn = Instance.new("TextButton", parent); Btn.Size = UDim2.new(0.92, 0, 0, 34); Btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Btn.BackgroundTransparency = 0.92; Btn.Text = "" 
+    local Btn = Instance.new("TextButton", parent)
+    Btn.Size = UDim2.new(0.92, 0, 0, 36)
+    Btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.BackgroundTransparency = 0.92
+    Btn.Text = "" 
+    Btn.AutoButtonColor = false
     Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 10)
-    local Square = Instance.new("Frame", Btn); Square.Size = UDim2.new(0, 16, 0, 16); Square.Position = UDim2.new(0, 10, 0.5, -8); Square.BorderSizePixel = 0; Instance.new("UICorner", Square).CornerRadius = UDim.new(1, 0)
-    local Label = Instance.new("TextLabel", Btn); Label.Size = UDim2.new(1, -40, 1, 0); Label.Position = UDim2.new(0, 35, 0, 0); Label.BackgroundTransparency = 1; Label.Font = Enum.Font.Gotham; Label.TextColor3 = Color3.fromRGB(240, 240, 245); Label.TextSize = 12; Label.TextXAlignment = "Left"
+    
+    local Label = Instance.new("TextLabel", Btn)
+    Label.Size = UDim2.new(1, -60, 1, 0)
+    Label.Position = UDim2.new(0, 12, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Font = Enum.Font.GothamMedium
+    Label.TextColor3 = Color3.fromRGB(240, 240, 245)
+    Label.TextSize = 12
+    Label.TextXAlignment = "Left"
     RegLang(Label, "Text", viText, enText)
 
+    local ToggleBg = Instance.new("Frame", Btn)
+    ToggleBg.Size = UDim2.new(0, 36, 0, 20)
+    ToggleBg.Position = UDim2.new(1, -45, 0.5, -10)
+    ToggleBg.BackgroundColor3 = Color3.fromRGB(80, 80, 85)
+    Instance.new("UICorner", ToggleBg).CornerRadius = UDim.new(1, 0)
+
+    local Circle = Instance.new("Frame", ToggleBg)
+    Circle.Size = UDim2.new(0, 16, 0, 16)
+    Circle.Position = UDim2.new(0, 2, 0.5, -8)
+    Circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", Circle).CornerRadius = UDim.new(1, 0)
+
     Btn:SetAttribute("IsActive", defaultActive or false)
+    
     local function UpdateState()
         local isActive = Btn:GetAttribute("IsActive")
-        Square.BackgroundColor3 = isActive and IOS_BLUE or Color3.fromRGB(80, 80, 85)
-        Square.BackgroundTransparency = isActive and 0.1 or 0.6
+        TweenService:Create(ToggleBg, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            BackgroundColor3 = isActive and IOS_BLUE or Color3.fromRGB(80, 80, 85)
+        }):Play()
+        TweenService:Create(Circle, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Position = isActive and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+        }):Play()
     end
     UpdateState()
     
@@ -816,6 +895,7 @@ local function CreateBtn(parent, textData, callback, defaultActive)
     Btn:GetAttributeChangedSignal("IsActive"):Connect(UpdateState)
     return Btn
 end
+
 
 --- [Chú thích: Hàm sinh Input Box (Ô nhập liệu)]
 local function CreateInput(parent, titleData, placeholderData, callback)
@@ -915,6 +995,13 @@ CreateBtn(ScrollMain, {"Nổi Teleport Tàng Hình (Bypass)", "Floating Teleport
     BypassBtnFrame.Visible = s
     if not s and bypassTeleportActive then TurnOffBypassTeleport() end
 end)
+--- [Chú thích: Nút Bật/Tắt Chat Global Visual]
+CreateBtn(ScrollMain, {"Chat Global Visual", "Chat Global Visual"}, function(s)
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/TranVuKhoa/Notify/refs/heads/main/Chat%20Global%20Visual"))()
+    end)
+end)
+
 
 --- [Chú thích: NỘI DUNG TAB 2 (TRANG 2 - God Modes)]
 CreateBtn(ScrollPage2, {"Mở Tab Tính Năng Ẩn", "Unlock Hidden Features"}, function(s) UpdateTabs(s); if s then SwitchTab("Hidden") end end)

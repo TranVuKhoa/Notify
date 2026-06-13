@@ -1,28 +1,38 @@
--- ==========================================
--- GLOBAL ANNOUNCEMENT PANEL V7 (FINAL HUB EDITION V5.1)
--- Tối ưu: Mặc định vị trí nút mở Menu tròn ở góc BÊN TRÁI - GIỮA
--- Bố cục: Grid 2x2 + Nút Xóa sát lề phải
--- ==========================================
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
 local player = Players.LocalPlayer
 
-local GUI_NAME = "SystemAnnouncer_DeltaV7"
+local GUI_NAME = "SystemAnnouncer_DeltaV7_Upgraded"
 
--- ==========================================
--- HỆ THỐNG ANTI-OVERLAP (TẮT MENU NẾU CHẠY LẦN 2)
--- ==========================================
 local existingGui = player:WaitForChild("PlayerGui"):FindFirstChild(GUI_NAME)
 if existingGui then
     existingGui:Destroy()
-    warn("Đã tắt hoàn toàn Announcement Panel!")
+    warn("Đã tắt hoàn toàn Announcement Panel phiên bản cũ!")
     return 
 end
 
+local function playClickSound(soundType)
+    local sound = Instance.new("Sound")
+    sound.Volume = 0.5
+    if soundType == "toggle" then
+        sound.SoundId = "rbxassetid://1222213261" 
+        sound.PlaybackSpeed = 1.2
+    else
+        sound.SoundId = "rbxassetid://8549923053" 
+        sound.PlaybackSpeed = 1.0
+    end
+    sound.Parent = SoundService
+    sound:Play()
+    sound.Ended:Connect(function()
+        sound:Destroy()
+    end)
+end
+
 local verifiedIcon = " \u{E000}" 
+local cursedIcon = " \u{E000} 🩸" -- Tích xanh kinh dị kèm vệt máu
 
 local rainbowColorSequence = ColorSequence.new({
     ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 50)),
@@ -47,19 +57,27 @@ container.Position = UDim2.new(0, 0, 0, 80)
 container.BackgroundTransparency = 1
 container.Parent = screenGui
 
--- ==========================================
--- ANIMATION & DRAG UTILITIES
--- ==========================================
 local function playClickAnimation(button)
-    local tweenDown = TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset - 4, button.Size.Y.Scale, button.Size.Y.Offset - 4)
-    })
-    local tweenUp = TweenService:Create(button, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Size = button.Size
-    })
+    local uiScale = button:FindFirstChild("UIScale") or Instance.new("UIScale", button)
+    local tweenDown = TweenService:Create(uiScale, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 0.9})
+    local tweenUp = TweenService:Create(uiScale, TweenInfo.new(0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1})
     tweenDown:Play()
     tweenDown.Completed:Wait()
     tweenUp:Play()
+end
+
+local function playButtonTriggerAnimation(button, originalColor)
+    local uiScale = button:FindFirstChild("UIScale") or Instance.new("UIScale", button)
+    local clickScaleTween = TweenService:Create(uiScale, TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 0.92})
+    local clickColorTween = TweenService:Create(button, TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(255, 255, 255)})
+    local releaseScaleTween = TweenService:Create(uiScale, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1})
+    local releaseColorTween = TweenService:Create(button, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundColor3 = originalColor})
+    
+    clickScaleTween:Play()
+    clickColorTween:Play()
+    clickScaleTween.Completed:Wait()
+    releaseScaleTween:Play()
+    releaseColorTween:Play()
 end
 
 local function makeDraggable(dragArea, targetFrame)
@@ -69,33 +87,42 @@ local function makeDraggable(dragArea, targetFrame)
     dragArea.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
+            dragInput = input
             mousePos = input.Position
             framePos = targetFrame.Position
+            
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
         end
     end)
-    dragArea.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
+    
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - mousePos
-            TweenService:Create(targetFrame, TweenInfo.new(0.08, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+            TweenService:Create(targetFrame, TweenInfo.new(0.05, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
                 Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
             }):Play()
         end
     end)
 end
 
--- ==========================================
--- HÀM TẠO THÔNG BÁO TRÊN MÀN HÌNH
--- ==========================================
 local function createAnnouncement(sender, message, isRainbowText, isAnonymous)
     if not message or message == "" then return end
+    
+    local isRainbowName = false
+    local isCursedName = false
+    
+    -- Kiểm tra thứ tự ưu tiên: Lệnh quỷ dữ [---] trước, sau đó mới tới [--]
+    if string.find(message, "%[%-%-%-%]") then
+        isCursedName = true
+        message = string.gsub(message, "%[%-%-%-%]%s*", "")
+    elseif string.find(message, "%[%-%-%]") then
+        isRainbowName = true
+        message = string.gsub(message, "%[%-%-%]%s*", "")
+    end
+    
+    if message == "" then return end 
     
     local nameToShow = ""
     if not isAnonymous then
@@ -128,23 +155,69 @@ local function createAnnouncement(sender, message, isRainbowText, isAnonymous)
     local usernameLabel = Instance.new("TextLabel")
     usernameLabel.BackgroundTransparency = 1
     usernameLabel.Font = Enum.Font.GothamBold
-    
-    if isAnonymous then
-        usernameLabel.Text = "\u{E000} :" 
-    else
-        usernameLabel.Text = nameToShow .. verifiedIcon .. " :"
-    end
-    
-    usernameLabel.TextColor3 = isAnonymous and Color3.fromRGB(180, 180, 180) or Color3.fromRGB(0, 255, 150)
     usernameLabel.TextStrokeTransparency = 0.2
     usernameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
     usernameLabel.TextSize = 22
     usernameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    usernameLabel.Size = UDim2.new(0, 0, 1, 0)
+    usernameLabel.Size = UDim2.new(0, 200, 1, 0)
     usernameLabel.Position = UDim2.new(0, textStartX, 0, 0)
     usernameLabel.Parent = frame
     
+    -- XỬ LÝ LỆNH ẨN TÊN HIỂN THỊ
+    if isCursedName then
+        usernameLabel.Text = isAnonymous and "☠ :" or (nameToShow .. cursedIcon .. " :")
+        usernameLabel.TextColor3 = Color3.fromRGB(220, 0, 0)
+        
+        -- Dải màu Đỏ Máu pha Đen rùng rợn
+        local cursedGradient = Instance.new("UIGradient")
+        cursedGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(40, 0, 0)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+        })
+        cursedGradient.Parent = usernameLabel
+        
+        -- Vòng lặp Glitch giật lag điên cuồng
+        task.spawn(function()
+            local origPos = usernameLabel.Position
+            while usernameLabel and usernameLabel.Parent do
+                -- Giật khung hình (Jittering)
+                usernameLabel.Position = origPos + UDim2.new(0, math.random(-2, 2), 0, math.random(-2, 2))
+                cursedGradient.Rotation = math.random(0, 360)
+                -- Viền nhấp nháy đỏ chớp tắt
+                if math.random() > 0.6 then
+                    usernameLabel.TextStrokeColor3 = Color3.fromRGB(255, 0, 0)
+                    usernameLabel.TextStrokeTransparency = 0
+                else
+                    usernameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+                    usernameLabel.TextStrokeTransparency = 0.2
+                end
+                task.wait(0.04) -- Tốc độ glitch cực nhanh
+            end
+        end)
+        
+    elseif isRainbowName then
+        usernameLabel.Text = isAnonymous and "\u{E000} :" or (nameToShow .. verifiedIcon .. " :")
+        usernameLabel.TextColor3 = Color3.new(1, 1, 1)
+        local nameGradient = Instance.new("UIGradient")
+        nameGradient.Color = rainbowColorSequence
+        nameGradient.Parent = usernameLabel
+        task.spawn(function()
+            local rot = 0
+            while usernameLabel and usernameLabel.Parent do
+                rot = (rot + 3) % 360
+                nameGradient.Rotation = rot
+                task.wait(0.02)
+            end
+        end)
+    else
+        -- Bình thường
+        usernameLabel.Text = isAnonymous and "\u{E000} :" or (nameToShow .. verifiedIcon .. " :")
+        usernameLabel.TextColor3 = isAnonymous and Color3.fromRGB(180, 180, 180) or Color3.fromRGB(0, 255, 150)
+    end
+    
     task.wait(0.01)
+    usernameLabel.Size = UDim2.new(0, usernameLabel.TextBounds.X, 1, 0)
     
     local maxWidth = 450
     local messageWidth = #message * 10
@@ -205,16 +278,14 @@ local function createAnnouncement(sender, message, isRainbowText, isAnonymous)
     end)
 end
 
--- ==========================================
--- KHUNG DASHBOARD PANEL CHÍNH
--- ==========================================
-local dashboard = Instance.new("Frame") 
+local dashboard = Instance.new("CanvasGroup") 
 dashboard.Name = "Dashboard"
-dashboard.Size = UDim2.new(0, 0, 0, 0) 
+dashboard.Size = UDim2.new(0, 420, 0, 240) 
 dashboard.Position = UDim2.new(0.5, 0, 0.5, 0)
 dashboard.AnchorPoint = Vector2.new(0.5, 0.5)
 dashboard.BackgroundColor3 = Color3.fromRGB(18, 18, 22) 
 dashboard.ClipsDescendants = true 
+dashboard.GroupTransparency = 1 
 dashboard.Visible = false
 dashboard.Parent = screenGui
 
@@ -228,7 +299,7 @@ dashStroke.Color = Color3.fromRGB(60, 60, 70)
 dashStroke.Parent = dashboard
 
 local contentHolder = Instance.new("Frame")
-contentHolder.Size = UDim2.new(0, 360, 0, 210) 
+contentHolder.Size = UDim2.new(1, 0, 1, 0) 
 contentHolder.Position = UDim2.new(0.5, 0, 0.5, 0)
 contentHolder.AnchorPoint = Vector2.new(0.5, 0.5)
 contentHolder.BackgroundTransparency = 1
@@ -254,7 +325,7 @@ topPatch.Parent = topBar
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 1, 0)
 title.BackgroundTransparency = 1
-title.Text = "  ⚡ SYSTEM ANNOUNCER"
+title.Text = "  ⚡ SYSTEM ANNOUNCER V7 PRO"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 13
 title.Font = Enum.Font.GothamBold
@@ -278,7 +349,7 @@ contentArea.Parent = contentHolder
 
 local uiList = Instance.new("UIListLayout")
 uiList.SortOrder = Enum.SortOrder.LayoutOrder
-uiList.Padding = UDim.new(0, 15)
+uiList.Padding = UDim.new(0, 12)
 uiList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 uiList.Parent = contentArea
 
@@ -286,9 +357,16 @@ local padding = Instance.new("UIPadding")
 padding.PaddingTop = UDim.new(0, 15)
 padding.Parent = contentArea
 
--- Ô NHẬP TEXTBOX
+local inputContainer = Instance.new("Frame")
+inputContainer.Name = "InputContainer"
+inputContainer.Size = UDim2.new(0.9, 0, 0, 45)
+inputContainer.BackgroundTransparency = 1
+inputContainer.LayoutOrder = 1
+inputContainer.Parent = contentArea
+
 local textBox = Instance.new("TextBox")
-textBox.Size = UDim2.new(0.9, 0, 0, 45)
+textBox.Size = UDim2.new(1, -62, 1, 0) 
+textBox.Position = UDim2.new(0, 0, 0, 0)
 textBox.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
 textBox.Text = ""
 textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -297,8 +375,7 @@ textBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 160)
 textBox.TextSize = 13
 textBox.Font = Enum.Font.Gotham
 textBox.ClearTextOnFocus = false 
-textBox.LayoutOrder = 1
-textBox.Parent = contentArea
+textBox.Parent = inputContainer
 
 local boxCorner = Instance.new("UICorner")
 boxCorner.CornerRadius = UDim.new(0, 6)
@@ -311,47 +388,55 @@ boxStroke.Parent = textBox
 
 local textPadding = Instance.new("UIPadding")
 textPadding.PaddingLeft = UDim.new(0, 10)
-textPadding.PaddingRight = UDim.new(0, 55)
+textPadding.PaddingRight = UDim.new(0, 10)
 textPadding.Parent = textBox
 
--- NÚT XÓA ĐỎ KHỐI SÁT MÉP PHẢI Ô NHẬP
 local clearBtn = Instance.new("TextButton")
 clearBtn.Name = "ClearButton"
-clearBtn.Size = UDim2.new(0, 50, 1, 0)
+clearBtn.Size = UDim2.new(0, 56, 1, 0)
 clearBtn.Position = UDim2.new(1, 0, 0, 0)
 clearBtn.AnchorPoint = Vector2.new(1, 0)
 clearBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50) 
 clearBtn.Text = "XÓA" 
 clearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-clearBtn.TextSize = 14
+clearBtn.TextSize = 13
 clearBtn.Font = Enum.Font.GothamBold
-clearBtn.Parent = textBox
+clearBtn.AutoButtonColor = false
+clearBtn.Parent = inputContainer
 
 local clearCorner = Instance.new("UICorner")
 clearCorner.CornerRadius = UDim.new(0, 6)
 clearCorner.Parent = clearBtn
 
-local clearPatch = Instance.new("Frame")
-clearPatch.Size = UDim2.new(0, 6, 1, 0)
-clearPatch.Position = UDim2.new(0, 0, 0, 0)
-clearPatch.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-clearPatch.BorderSizePixel = 0
-clearPatch.Parent = clearBtn
+clearBtn.MouseButton1Click:Connect(function() 
+    playClickSound("click")
+    task.spawn(function() playClickAnimation(clearBtn) end)
+    textBox.Text = "" 
+end)
 
-clearBtn.MouseButton1Click:Connect(function() textBox.Text = "" end)
+local tipLabel = Instance.new("TextLabel")
+tipLabel.Name = "TipLabel"
+tipLabel.Size = UDim2.new(0.9, 0, 0, 14)
+tipLabel.BackgroundTransparency = 1
+tipLabel.Text = "💡 Mẹo: [--] Tên Cầu Vồng | [---] Tên Quỷ Dữ"
+tipLabel.TextColor3 = Color3.fromRGB(160, 160, 175)
+tipLabel.TextSize = 11
+tipLabel.Font = Enum.Font.GothamMedium
+tipLabel.TextXAlignment = Enum.TextXAlignment.Left
+tipLabel.LayoutOrder = 2
+tipLabel.Parent = contentArea
 
--- CONTAINER CHỨA LƯỚI 2X2 CHO 4 NÚT
 local gridContainer = Instance.new("Frame")
 gridContainer.Name = "GridContainer"
-gridContainer.Size = UDim2.new(0.9, 0, 0, 90)
+gridContainer.Size = UDim2.new(0.9, 0, 0, 95)
 gridContainer.BackgroundTransparency = 1
-gridContainer.LayoutOrder = 2
+gridContainer.LayoutOrder = 3
 gridContainer.Parent = contentArea
 
 local gridLayout = Instance.new("UIGridLayout")
 gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-gridLayout.CellSize = UDim2.new(0.48, 0, 0, 40)
-gridLayout.CellPadding = UDim2.new(0.04, 0, 0, 10)
+gridLayout.CellSize = UDim2.new(0.48, 0, 0, 42)
+gridLayout.CellPadding = UDim2.new(0.04, 0, 0, 8)
 gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 gridLayout.Parent = gridContainer
 
@@ -407,14 +492,10 @@ btnStroke4.Thickness = 2
 local btnGradient4 = Instance.new("UIGradient", btnStroke4)
 btnGradient4.Color = rainbowColorSequence
 
--- ==========================================
--- NÚT MỞ MENU TRÒN XOAY VIỀN CẦU VỒNG (ĐÃ DỜI QUA TRÁI - GIỮA MÀN HÌNH)
--- ==========================================
 local toggleBtn = Instance.new("Frame")
 toggleBtn.Name = "ToggleMenu"
 toggleBtn.Size = UDim2.new(0, 54, 0, 54)
--- Tọa độ mới: X sát bên trái (offset 20), Y chính giữa (scale 0.5, offset -27 để cân bằng tâm)
-toggleBtn.Position = UDim2.new(0, 20, 0.5, -27)
+toggleBtn.Position = UDim2.new(0, 20, 0, 60) 
 toggleBtn.BackgroundColor3 = Color3.new(1, 1, 1)
 toggleBtn.Parent = screenGui
 Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
@@ -438,37 +519,107 @@ toggleIcon.BackgroundTransparency = 1
 toggleIcon.Image = "rbxassetid://14895320963"
 toggleIcon.Parent = innerToggle
 
-local touchStartPos
-local isMenuOpen = false
 
-innerToggle.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        touchStartPos = input.Position
+-- ==========================================
+-- BỘ LỌC CẢM ỨNG & DRAG SIÊU NHẠY CHỐNG "QUƠ NHẦM"
+-- ==========================================
+local touchBirthTimes = {}
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        touchBirthTimes[input] = tick()
     end
 end)
 
-innerToggle.InputEnded:Connect(function(input)
+UserInputService.InputEnded:Connect(function(input)
+    touchBirthTimes[input] = nil
+end)
+
+local toggleInput = nil
+local dragStartPos = nil
+local dragFramePos = nil
+local isDraggingMenu = false
+local isMenuOpen = false
+local toggleDebounce = false
+
+innerToggle.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        local distance = (input.Position - touchStartPos).Magnitude
-        if distance < 10 then 
-            isMenuOpen = not isMenuOpen
-            playClickAnimation(toggleBtn)
-            if isMenuOpen then
-                dashboard.Visible = true
-                TweenService:Create(dashboard, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 360, 0, 210)}):Play()
-            else
-                local closeTween = TweenService:Create(dashboard, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)})
-                closeTween:Play()
-                closeTween.Completed:Wait() 
-                if not isMenuOpen then dashboard.Visible = false end 
-            end
+        local birthTime = touchBirthTimes[input] or tick()
+        if (tick() - birthTime) > 0.5 then
+            return 
+        end
+        
+        if not toggleInput then
+            toggleInput = input
+            dragStartPos = input.Position
+            dragFramePos = toggleBtn.Position
+            isDraggingMenu = false
         end
     end
 end)
 
-makeDraggable(innerToggle, toggleBtn)
+UserInputService.InputChanged:Connect(function(input)
+    if input == toggleInput and dragStartPos then
+        local delta = input.Position - dragStartPos
+        
+        if not isDraggingMenu and delta.Magnitude > 2 then
+            isDraggingMenu = true
+        end
+        
+        if isDraggingMenu then
+            TweenService:Create(toggleBtn, TweenInfo.new(0.05, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+                Position = UDim2.new(dragFramePos.X.Scale, dragFramePos.X.Offset + delta.X, dragFramePos.Y.Scale, dragFramePos.Y.Offset + delta.Y)
+            }):Play()
+        end
+    end
+end)
 
--- Vòng lặp xoay màu Gradient
+local function handleToggleRelease(input)
+    if input == toggleInput then
+        local wasDragging = isDraggingMenu
+        
+        toggleInput = nil
+        isDraggingMenu = false
+        dragStartPos = nil
+        
+        if not wasDragging then
+            if toggleDebounce then return end
+            toggleDebounce = true
+            isMenuOpen = not isMenuOpen
+            
+            playClickSound("toggle")
+            task.spawn(function() playClickAnimation(toggleBtn) end)
+            
+            if isMenuOpen then
+                dashboard.Visible = true
+                dashboard.Size = UDim2.new(0, 100, 0, 60)
+                dashboard.GroupTransparency = 1 
+                
+                local tween = TweenService:Create(dashboard, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(0, 420, 0, 240),
+                    GroupTransparency = 0
+                })
+                tween:Play()
+                tween.Completed:Wait()
+            else
+                local tween = TweenService:Create(dashboard, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+                    Size = UDim2.new(0, 100, 0, 60),
+                    GroupTransparency = 1
+                })
+                tween:Play()
+                tween.Completed:Wait() 
+                if not isMenuOpen then dashboard.Visible = false end 
+            end
+            
+            task.wait(0.1) 
+            toggleDebounce = false
+        end
+    end
+end
+
+innerToggle.InputEnded:Connect(handleToggleRelease)
+UserInputService.InputEnded:Connect(handleToggleRelease)
+
 local connection1, connection2, connection3
 connection1 = RunService.RenderStepped:Connect(function(dt)
     if not btnGradient3.Parent then connection1:Disconnect() return end
@@ -483,7 +634,6 @@ connection3 = RunService.RenderStepped:Connect(function(dt)
     btnGradient4.Rotation = (btnGradient4.Rotation + dt * 100) % 360
 end)
 
--- Hiệu ứng Hover nút
 local function setupButtonEffects(btn, originalColor)
     btn.MouseEnter:Connect(function() TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.new(originalColor.R*1.2, originalColor.G*1.2, originalColor.B*1.2)}):Play() end)
     btn.MouseLeave:Connect(function() TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = originalColor}):Play() end)
@@ -492,9 +642,28 @@ setupButtonEffects(normalButton, normalButton.BackgroundColor3)
 setupButtonEffects(rainbowButton, rainbowButton.BackgroundColor3)
 setupButtonEffects(anonNormalButton, anonNormalButton.BackgroundColor3)
 setupButtonEffects(anonRainbowButton, anonRainbowButton.BackgroundColor3)
+setupButtonEffects(clearBtn, clearBtn.BackgroundColor3)
 
--- Sự kiện click các nút chức năng
-normalButton.MouseButton1Click:Connect(function() playClickAnimation(normalButton) if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, false, false) end end)
-rainbowButton.MouseButton1Click:Connect(function() playClickAnimation(rainbowButton) if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, true, false) end end)
-anonNormalButton.MouseButton1Click:Connect(function() playClickAnimation(anonNormalButton) if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, false, true) end end)
-anonRainbowButton.MouseButton1Click:Connect(function() playClickAnimation(anonRainbowButton) if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, true, true) end end)
+normalButton.MouseButton1Click:Connect(function() 
+    playClickSound("click")
+    task.spawn(function() playButtonTriggerAnimation(normalButton, Color3.fromRGB(50, 100, 255)) end)
+    if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, false, false) end 
+end)
+
+rainbowButton.MouseButton1Click:Connect(function() 
+    playClickSound("click")
+    task.spawn(function() playButtonTriggerAnimation(rainbowButton, Color3.fromRGB(24, 24, 28)) end)
+    if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, true, false) end 
+end)
+
+anonNormalButton.MouseButton1Click:Connect(function() 
+    playClickSound("click")
+    task.spawn(function() playButtonTriggerAnimation(anonNormalButton, Color3.fromRGB(80, 80, 90)) end)
+    if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, false, true) end 
+end)
+
+anonRainbowButton.MouseButton1Click:Connect(function() 
+    playClickSound("click")
+    task.spawn(function() playButtonTriggerAnimation(anonRainbowButton, Color3.fromRGB(24, 24, 28)) end)
+    if textBox.Text ~= "" then createAnnouncement(player, textBox.Text, true, true) end 
+end)

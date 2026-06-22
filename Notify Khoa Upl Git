@@ -1,0 +1,60 @@
+-- [[ TEST NOTIFY NỔI STYLE BANANA CAT - VU KHOA ]]
+
+local function CreateNotify(title, text, duration)
+    local ScreenGui = Instance.new("ScreenGui")
+    local MainFrame = Instance.new("Frame")
+    local UICorner = Instance.new("UICorner")
+    local TitleLabel = Instance.new("TextLabel")
+    local ContentLabel = Instance.new("TextLabel")
+    local UIStroke = Instance.new("UIStroke")
+
+    ScreenGui.Parent = game.CoreGui
+    ScreenGui.Name = "VuKhoaNotify"
+
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = ScreenGui
+    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25) -- Màu tối huyền bí
+    MainFrame.Position = UDim2.new(1, -300, 1, -100) -- Hiện ở góc dưới bên phải
+    MainFrame.Size = UDim2.new(0, 280, 0, 80)
+    MainFrame.Transparency = 0.2
+
+    UICorner.CornerRadius = UDim.new(0, 10)
+    UICorner.Parent = MainFrame
+
+    UIStroke.Color = Color3.fromRGB(255, 255, 0) -- Viền vàng rực rỡ
+    UIStroke.Thickness = 2
+    UIStroke.Parent = MainFrame
+
+    TitleLabel.Parent = MainFrame
+    TitleLabel.Text = title
+    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.TextSize = 16
+    TitleLabel.Position = UDim2.new(0, 10, 0, 10)
+    TitleLabel.Size = UDim2.new(0, 260, 0, 20)
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    ContentLabel.Parent = MainFrame
+    ContentLabel.Text = text
+    ContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ContentLabel.Font = Enum.Font.Gotham
+    ContentLabel.TextSize = 14
+    ContentLabel.Position = UDim2.new(0, 10, 0, 35)
+    ContentLabel.Size = UDim2.new(0, 260, 0, 40)
+    ContentLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ContentLabel.TextWrapped = true
+
+    -- Hiệu ứng trượt vào
+    MainFrame.Position = UDim2.new(1, 50, 1, -100)
+    MainFrame:TweenPosition(UDim2.new(1, -300, 1, -100), "Out", "Quad", 0.5, true)
+
+    -- Tự đóng sau thời gian duration
+    task.delay(duration or 5, function()
+        MainFrame:TweenPosition(UDim2.new(1, 50, 1, -100), "In", "Quad", 0.5, true, function()
+            ScreenGui:Destroy()
+        end)
+    end)
+end
+
+-- Chạy thử
+CreateNotify("NOTIFY UI LIBRARY", "Kaitun VuKhoa: Đưa Tao 50K", 10)
